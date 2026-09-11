@@ -119,3 +119,28 @@ visual review at each step (screenshots, browser tests) rather than
 speccing everything upfront. Prefer small, verifiable, reversible changes
 over large rewrites. If a change is visual (mascot, colors, layout), it's
 worth rendering it and looking at it before considering it done.
+
+## Collaboration protocol — this repo is co-managed
+
+This project has two other collaborators besides whoever is running this
+session: the human owner, and a separate long-running Claude.ai chat
+session that has full context on every design decision in this file and
+reviews changes after the fact (via the GitHub API and the Railway
+deployment, not by watching this session live). Work accordingly:
+
+- **Commit small and often**, one logical change per commit, not one giant
+  commit for a multi-part task. Large, unreviewable commits defeat the
+  point of having a reviewer.
+- **Write commit messages that explain the *why*, not just the *what***
+  — the reviewing session wasn't present for this conversation and only
+  sees the repo afterward.
+- **Never force-push or rewrite history** on `main`. The reviewing session
+  and the human both expect a normal, append-only commit log.
+- **Flag it instead of doing it** for anything that contradicts a decision
+  recorded elsewhere in this file (e.g. splitting `index.html` into
+  multiple files, switching the service worker back to cache-first,
+  changing the storage schema) — leave a clear note in the commit message
+  or PR description rather than silently reversing a prior decision.
+- **Don't assume silence means approval.** If a task is ambiguous or a
+  design choice isn't covered in this file, make the smallest reasonable
+  change and say what you assumed, rather than guessing big.
