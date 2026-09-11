@@ -305,6 +305,17 @@
   .status-top{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
   .status-mascot{ flex:0 0 auto; width:130px; height:143px; }
   .status-mascot svg{ width:100%; height:100%; display:block; }
+  .mascot-figure{ transform-box:view-box; transform-origin:center; animation:mascotBob 3.6s ease-in-out infinite; }
+  .mascot-eye{ transform-box:fill-box; transform-origin:center; animation:mascotBlink 5.2s ease-in-out infinite; }
+  .mascot-sparkle{ transform-box:fill-box; transform-origin:center; animation:mascotTwinkle 1.8s ease-in-out infinite; }
+  .mascot-orb{ transform-box:fill-box; transform-origin:center; animation:mascotOrbPulse 2.2s ease-in-out infinite; }
+  @keyframes mascotBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
+  @keyframes mascotBlink{ 0%,90%,100%{ transform:scaleY(1); } 93%{ transform:scaleY(0.1); } 96%{ transform:scaleY(1); } }
+  @keyframes mascotTwinkle{ 0%,100%{ opacity:0.35; transform:scale(0.75); } 50%{ opacity:1; transform:scale(1.15); } }
+  @keyframes mascotOrbPulse{ 0%,100%{ opacity:0.85; transform:scale(1); } 50%{ opacity:1; transform:scale(1.2); } }
+  @media (prefers-reduced-motion: reduce){
+    .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb{ animation:none; }
+  }
   .status-main{ flex:1; min-width:220px; }
   .status-row1{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
   .status-titles{ display:flex; align-items:baseline; gap:10px; }
@@ -814,9 +825,10 @@
     var lx = (band.stanceW-1)*9;
     var hx = 142, hy = 116;
 
-    var parts = [];
-    parts.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot)"/>');
+    var bg = [];
+    bg.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot)"/>');
 
+    var parts = [];
     parts.push('<path d="M70,120 C66,140 68,158 78,168 L84,150 C80,142 78,130 80,118 Z" fill="'+JACKET_DARK+'"/>');
     parts.push('<path d="M124,120 C128,140 126,158 116,168 L110,150 C114,142 116,130 114,118 Z" fill="'+JACKET_DARK+'"/>');
 
@@ -825,7 +837,7 @@
     parts.push('<ellipse cx="'+(80-lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+HAIR+'"/>');
     parts.push('<ellipse cx="'+(115+lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+HAIR+'"/>');
 
-    parts.push('<path d="M'+(76-bw)+',122 C'+(73-bw)+',136 '+(73-bw)+',152 '+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+' C'+(121+bw)+',152 '+(120+bw)+',136 '+(118+bw)+',122 C'+(115+bw)+',110 105,102 97,102 C89,102 '+(79-bw)+',110 '+(76-bw)+',122 Z" fill="'+JACKET+'"/>');
+    parts.push('<path d="M'+(76-bw)+',122 C'+(73-bw)+',136 '+(73-bw)+',152 '+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+' C'+(121+bw)+',152 '+(120+bw)+',136 '+(118+bw)+',122 C'+(115+bw)+',110 105,102 97,102 C89,102 '+(79-bw)+',110 '+(76-bw)+',122 Z" fill="url(#jacketGrad)"/>');
     parts.push('<path d="M97,106 L94,'+(bodyBot-2)+'" stroke="'+color+'" stroke-width="2" fill="none" opacity="0.85"/>');
     parts.push('<path d="M88,104 L97,116 L106,104" fill="'+SHIRT+'"/>');
     parts.push('<path d="M'+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+'" stroke="'+color+'" stroke-width="1.6" opacity="0.6"/>');
@@ -836,13 +848,13 @@
     parts.push('<path d="M104,110 C113,112 120,118 125,126 L'+(hx-4)+','+(hy+2)+' L'+(hx-10)+','+(hy+8)+' L116,130 C111,122 106,116 99,112 Z" fill="'+JACKET+'"/>');
     parts.push('<circle cx="'+(hx-2)+'" cy="'+(hy+4)+'" r="5.5" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="'+HAIR+'"/>');
+    parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad)"/>');
+    parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad)"/>');
 
     parts.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR+'"/>');
+    parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad)"/>');
+    parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
     parts.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
     parts.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
     parts.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
@@ -854,13 +866,16 @@
     parts.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     parts.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
 
-    [84, 110].forEach(function(ex){
-      parts.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="8" ry="10" fill="#ffffff"/>');
-      parts.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="6.4" ry="8" fill="'+color+'"/>');
-      parts.push('<ellipse cx="'+ex+'" cy="'+(ey+4)+'" rx="3.2" ry="4.2" fill="#1a1d24"/>');
-      parts.push('<circle cx="'+(ex-2)+'" cy="'+(ey-1)+'" r="1.8" fill="#ffffff"/>');
-      parts.push('<circle cx="'+(ex+2.4)+'" cy="'+(ey+4)+'" r="0.9" fill="#ffffff" opacity="0.85"/>');
-      parts.push('<path d="M'+(ex-8)+','+(ey-6)+' Q'+ex+','+(ey-10)+' '+(ex+8)+','+(ey-6)+'" stroke="'+HAIR+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
+    [84, 110].forEach(function(ex, ei){
+      var eye = [];
+      eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="8" ry="10" fill="#ffffff"/>');
+      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="6.4" ry="8" fill="url(#irisGrad)"/>');
+      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+4)+'" rx="3.2" ry="4.2" fill="#1a1d24"/>');
+      eye.push('<circle cx="'+(ex-2.4)+'" cy="'+(ey-2)+'" r="2.4" fill="#ffffff"/>');
+      eye.push('<circle cx="'+(ex+2.6)+'" cy="'+(ey+4.2)+'" r="1.1" fill="#ffffff" opacity="0.9"/>');
+      eye.push('<circle cx="'+(ex-3.6)+'" cy="'+(ey+1)+'" r="0.7" fill="#ffffff" opacity="0.7"/>');
+      eye.push('<path d="M'+(ex-8)+','+(ey-6)+' Q'+ex+','+(ey-10)+' '+(ex+8)+','+(ey-6)+'" stroke="'+HAIR+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
+      parts.push('<g class="mascot-eye" style="animation-delay:'+(ei*0.12)+'s">' + eye.join('') + '</g>');
     });
 
     parts.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
@@ -881,13 +896,15 @@
     var sparklePts = [[38,30,1.0],[150,50,0.7],[45,90,0.6]];
     for(var i=0; i<band.sparkles; i++){
       var sp = sparklePts[i%3], sx=sp[0], sy=sp[1], sc=sp[2];
-      parts.push('<path d="M'+sx+','+sy+' l'+(1.6*sc)+','+(4.3*sc)+' l'+(4.3*sc)+','+(1.6*sc)+' l'+(-4.3*sc)+','+(1.6*sc)+' l'+(-1.6*sc)+','+(4.3*sc)+' l'+(-1.6*sc)+','+(-4.3*sc)+' l'+(-4.3*sc)+','+(-1.6*sc)+' l'+(4.3*sc)+','+(-1.6*sc)+' Z" fill="'+color+'" opacity="0.75"/>');
+      parts.push('<path class="mascot-sparkle" style="animation-delay:'+(i*0.35)+'s" d="M'+sx+','+sy+' l'+(1.6*sc)+','+(4.3*sc)+' l'+(4.3*sc)+','+(1.6*sc)+' l'+(-4.3*sc)+','+(1.6*sc)+' l'+(-1.6*sc)+','+(4.3*sc)+' l'+(-1.6*sc)+','+(-4.3*sc)+' l'+(-4.3*sc)+','+(-1.6*sc)+' l'+(4.3*sc)+','+(-1.6*sc)+' Z" fill="'+color+'" opacity="0.75"/>');
     }
 
-    parts.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+')"/>');
-    parts.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
-    parts.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
-    parts.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
+    var orb = [];
+    orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+')"/>');
+    orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
+    orb.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
+    orb.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
+    parts.push('<g class="mascot-orb">' + orb.join('') + '</g>');
 
     return (
       '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
@@ -899,8 +916,24 @@
             '<stop offset="45%" stop-color="'+color+'" stop-opacity="0.08"/>' +
             '<stop offset="100%" stop-color="'+color+'" stop-opacity="0"/>' +
           '</radialGradient>' +
+          '<linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">' +
+            '<stop offset="0%" stop-color="'+HAIR_HI+'"/>' +
+            '<stop offset="60%" stop-color="'+HAIR+'"/>' +
+            '<stop offset="100%" stop-color="'+HAIR+'"/>' +
+          '</linearGradient>' +
+          '<linearGradient id="jacketGrad" x1="20%" y1="0%" x2="80%" y2="100%">' +
+            '<stop offset="0%" stop-color="'+JACKET+'"/>' +
+            '<stop offset="70%" stop-color="'+JACKET+'"/>' +
+            '<stop offset="100%" stop-color="'+JACKET_DARK+'"/>' +
+          '</linearGradient>' +
+          '<radialGradient id="irisGrad" cx="35%" cy="30%" r="75%">' +
+            '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>' +
+            '<stop offset="30%" stop-color="'+color+'"/>' +
+            '<stop offset="100%" stop-color="'+color+'"/>' +
+          '</radialGradient>' +
         '</defs>' +
-        parts.join('') +
+        bg.join('') +
+        '<g class="mascot-figure">' + parts.join('') + '</g>' +
       '</svg>'
     );
   }
