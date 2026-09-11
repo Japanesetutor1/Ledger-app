@@ -277,6 +277,16 @@
   .seg button:last-child{ border-right:none; }
   .seg button.active{ background:var(--surface-3); color:var(--gold); }
   .settings-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+  .backup-section{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+  .backup-section h2{ font-size:13px; margin:0 0 8px; font-weight:600; color:var(--gold); }
+  .backup-buttons{ display:flex; gap:10px; margin-top:10px; }
+  .backup-buttons button, .backup-buttons .import-btn{
+    background:var(--surface-3); border:1px solid var(--border); color:var(--text);
+    border-radius:var(--radius); padding:7px 14px; cursor:pointer; font-size:12.5px; font-family:inherit;
+    display:inline-flex; align-items:center;
+  }
+  .backup-buttons button:hover, .backup-buttons .import-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .import-btn input[type="file"]{ display:none; }
   .save-btn{
     background:var(--gold); border:none; color:#191410; font-weight:600;
     border-radius:var(--radius); padding:8px 18px; cursor:pointer; font-size:13px;
@@ -377,6 +387,13 @@
         }catch(e){ return null; }
       }
     };
+    // Ask the browser not to evict this site's storage under pressure.
+    // Real mitigation for iOS Safari's well-documented localStorage-eviction
+    // issue on installed home-screen apps — not a full guarantee, but a
+    // legitimate, harmless request supported by most browsers.
+    if(navigator.storage && navigator.storage.persist){
+      navigator.storage.persist().catch(function(){});
+    }
   }
 
   if('serviceWorker' in navigator){
@@ -1155,6 +1172,17 @@
       '<button class="save-btn" onclick="App.saveSettingsFromForm()">Save baseline</button>' +
       '<button class="reset-link" onclick="App.resetAll()">Reset all data</button>' +
       '</div>';
+
+    html += '<div class="backup-section">' +
+      '<h2>Backup &amp; restore</h2>' +
+      '<div class="baseline-note">iOS Safari can occasionally clear a home-screen app\'s saved data on its own. Export a backup file now and then — importing it fully restores your logs, favorites, and settings.</div>' +
+      '<div class="backup-buttons">' +
+        '<button onclick="App.exportData()">Export backup</button>' +
+        '<label class="import-btn">Import backup<input type="file" accept="application/json" id="importFileInput" onchange="App.importData(this)"></label>' +
+      '</div>' +
+      '<div class="add-row-err" id="importErr"></div>' +
+    '</div>';
+
     html += '</div>';
     return html;
   }
@@ -1549,6 +1577,49 @@
     await saveSettings();
     await saveLogs();
     render();
+  };
+
+  App.exportData = function(){
+    var payload = {
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      logs: logs,
+      favorites: favorites
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'ledger-backup-' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  };
+
+  App.importData = async function(inputEl){
+    var errEl = document.getElementById('importErr');
+    if(errEl) errEl.textContent = '';
+    var file = inputEl.files && inputEl.files[0];
+    if(!file) return;
+    try{
+      var text = await file.text();
+      var data = JSON.parse(text);
+      if(!data || typeof data !== 'object' || !data.logs || !data.settings){
+        throw new Error('bad shape');
+      }
+      if(!confirm('Import this backup? It will replace your current data.')) { inputEl.value = ''; return; }
+      settings = data.settings || {};
+      logs = data.logs || {};
+      favorites = data.favorites || { food: [], exercise: [] };
+      await saveSettings();
+      await saveLogs();
+      await saveFavorites();
+      render();
+    }catch(e){
+      if(errEl) errEl.textContent = "Couldn't read that file — make sure it's a Ledger backup export.";
+    }
+    inputEl.value = '';
   };
 
   App.addEntry = async function(type){
