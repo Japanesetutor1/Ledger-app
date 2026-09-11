@@ -301,6 +301,11 @@
     padding:14px 16px; margin-bottom:20px; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
   }
   .setup-banner button{ background:var(--gold); border:none; color:#191410; font-weight:600; border-radius:var(--radius); padding:7px 14px; cursor:pointer; font-size:12.5px; }
+  .backup-reminder{ border-color:#5fa8d3; }
+  .backup-reminder-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .backup-reminder-actions button:first-child{ background:#5fa8d3; color:#0d1720; }
+  .backup-reminder-actions .reminder-dismiss{ background:none; border:1px solid var(--border); color:var(--text-dim); }
+  .backup-reminder-actions .reminder-dismiss:hover{ color:var(--text); border-color:var(--text-dim); }
 
   .loading{ color:var(--text-dim); padding:40px 0; text-align:center; font-family:'IBM Plex Mono',monospace; }
 
@@ -355,7 +360,8 @@
 (function(){
   // Outside the Claude artifact environment window.storage doesn't exist —
   // fall back to localStorage so the app works standalone on a phone.
-  if(!window.storage){
+  var usingLocalFallback = !window.storage;
+  if(usingLocalFallback){
     window.storage = {
       get: async function(key){
         try{
@@ -396,6 +402,46 @@
     }
   }
 
+  // Second, independent storage backend (IndexedDB) mirrored alongside
+  // localStorage whenever running standalone. Two unrelated storage systems
+  // are very unlikely to both get evicted at once, and this needs zero
+  // action from the user — it's the "auto backup" safety belt. Every write
+  // goes to both; on load, whichever side actually has data wins, and the
+  // other side gets silently repaired from it.
+  function idbOpen(){
+    return new Promise(function(resolve, reject){
+      if(!('indexedDB' in window)) return reject(new Error('no indexedDB'));
+      var req = indexedDB.open('ledger-backup', 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore('kv'); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function idbSet(key, value){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try{
+          var tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(value, key);
+          tx.oncomplete = function(){ resolve(true); };
+          tx.onerror = function(){ resolve(false); };
+        }catch(e){ resolve(false); }
+      });
+    }).catch(function(){ return false; });
+  }
+  function idbGet(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try{
+          var tx = db.transaction('kv', 'readonly');
+          var req = tx.objectStore('kv').get(key);
+          req.onsuccess = function(){ resolve(req.result != null ? req.result : null); };
+          req.onerror = function(){ resolve(null); };
+        }catch(e){ resolve(null); }
+      });
+    }).catch(function(){ return null; });
+  }
+
   if('serviceWorker' in navigator){
     window.addEventListener('load', function(){
       navigator.serviceWorker.register('./sw.js').catch(function(){});
@@ -411,6 +457,7 @@
   var favorites = { food: [], exercise: [] };
   var currentDate = todayStr();
   var settingsOpen = false;
+  var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
 
@@ -621,44 +668,70 @@
   };
 
   async function loadState(){
-    try{
-      var s = await window.storage.get('settings');
-      settings = s && s.value ? JSON.parse(s.value) : {};
-    }catch(e){ settings = {}; }
-    try{
-      var l = await window.storage.get('logs');
-      logs = l && l.value ? JSON.parse(l.value) : {};
-    }catch(e){ logs = {}; }
-    try{
-      var f = await window.storage.get('favorites');
-      if(f && f.value){
-        favorites = JSON.parse(f.value);
-        if(!favorites.food) favorites.food = [];
-        if(!favorites.exercise) favorites.exercise = [];
-      } else {
-        // First run: seed with the common-foods starter set, then persist it.
-        favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES));
-        await saveFavorites();
+    // settings
+    var sLocal = null;
+    try{ var s = await window.storage.get('settings'); sLocal = (s && s.value) ? s.value : null; }catch(e){}
+    var sIdb = usingLocalFallback ? await idbGet('settings') : null;
+    var settingsRaw = sLocal || sIdb || null;
+    settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+    if(usingLocalFallback && settingsRaw){
+      if(!sLocal) window.storage.set('settings', settingsRaw, false).catch(function(){});
+      if(!sIdb) idbSet('settings', settingsRaw);
+    }
+
+    // logs
+    var lLocal = null;
+    try{ var l = await window.storage.get('logs'); lLocal = (l && l.value) ? l.value : null; }catch(e){}
+    var lIdb = usingLocalFallback ? await idbGet('logs') : null;
+    var logsRaw = lLocal || lIdb || null;
+    logs = logsRaw ? JSON.parse(logsRaw) : {};
+    if(usingLocalFallback && logsRaw){
+      if(!lLocal) window.storage.set('logs', logsRaw, false).catch(function(){});
+      if(!lIdb) idbSet('logs', logsRaw);
+    }
+
+    // favorites
+    var fLocal = null;
+    try{ var f = await window.storage.get('favorites'); fLocal = (f && f.value) ? f.value : null; }catch(e){}
+    var fIdb = usingLocalFallback ? await idbGet('favorites') : null;
+    var favoritesRaw = fLocal || fIdb || null;
+    if(favoritesRaw){
+      favorites = JSON.parse(favoritesRaw);
+      if(!favorites.food) favorites.food = [];
+      if(!favorites.exercise) favorites.exercise = [];
+      if(usingLocalFallback){
+        if(!fLocal) window.storage.set('favorites', favoritesRaw, false).catch(function(){});
+        if(!fIdb) idbSet('favorites', favoritesRaw);
       }
-    }catch(e){ favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES)); }
+    } else {
+      // First run on both sides: seed with the common-foods starter set.
+      favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES));
+      await saveFavorites();
+    }
   }
   async function saveSettings(){
+    var json = JSON.stringify(settings);
     try{
-      var r = await window.storage.set('settings', JSON.stringify(settings), false);
+      var r = await window.storage.set('settings', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('settings', json);
   }
   async function saveLogs(){
+    var json = JSON.stringify(logs);
     try{
-      var r = await window.storage.set('logs', JSON.stringify(logs), false);
+      var r = await window.storage.set('logs', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('logs', json);
   }
   async function saveFavorites(){
+    var json = JSON.stringify(favorites);
     try{
-      var r = await window.storage.set('favorites', JSON.stringify(favorites), false);
+      var r = await window.storage.set('favorites', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('favorites', json);
   }
 
   function ensureDay(dateStr){
@@ -717,6 +790,22 @@
       return day && ((day.food && day.food.length) || (day.exercise && day.exercise.length) || day.weight != null);
     }).sort();
   }
+
+  function shouldShowBackupReminder(){
+    if(!usingLocalFallback) return false; // no need inside the Claude artifact — that storage is already durable
+    if(reminderDismissed) return false;
+    if(trackedDatesSorted().length === 0) return false; // nothing worth backing up yet
+    var last = settings.lastExportAt;
+    if(!last) return true;
+    var daysSince = (Date.now() - last) / 86400000;
+    return daysSince >= 3;
+  }
+  function backupReminderText(){
+    if(!settings.lastExportAt) return "You haven't exported a backup yet — a quick safety net against your phone clearing local data.";
+    var days = Math.floor((Date.now() - settings.lastExportAt) / 86400000);
+    return "It's been " + days + " days since your last backup export.";
+  }
+
   function lastNTrackedDates(n){
     var dates = trackedDatesSorted();
     var upTo = dates.filter(function(d){ return d <= currentDate; });
@@ -1021,6 +1110,11 @@
     html += renderSettingsPanel();
     if(needsSetup && !settingsOpen){
       html += '<div class="setup-banner"><span>Add your stats to calculate baseline burn (BMR). Without them, only logged exercise counts toward burn.</span><button onclick="App.openSettings()">Set up baseline</button></div>';
+    }
+    if(shouldShowBackupReminder()){
+      html += '<div class="setup-banner backup-reminder"><span>' + backupReminderText() + '</span>' +
+        '<span class="backup-reminder-actions"><button onclick="App.exportData()">Export now</button>' +
+        '<button class="reminder-dismiss" onclick="App.dismissBackupReminder()">Not now</button></span></div>';
     }
     html += renderDateNav();
     html += renderSummary(t);
@@ -1595,6 +1689,16 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+
+    settings.lastExportAt = Date.now();
+    saveSettings();
+    reminderDismissed = true;
+    render();
+  };
+
+  App.dismissBackupReminder = function(){
+    reminderDismissed = true;
+    render();
   };
 
   App.importData = async function(inputEl){
