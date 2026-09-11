@@ -1,4 +1,4 @@
-const CACHE = 'ledger-v1';
+const CACHE = 'ledger-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function(e){
@@ -15,14 +15,17 @@ self.addEventListener('activate', function(e){
   self.clients.claim();
 });
 
+// Network-first: always try to fetch the latest version first (so redeploys
+// reach installed devices automatically), and only fall back to the cached
+// copy if the network request fails (i.e. genuinely offline).
 self.addEventListener('fetch', function(e){
   e.respondWith(
-    caches.match(e.request).then(function(cached){
-      return cached || fetch(e.request).then(function(res){
-        var resClone = res.clone();
-        caches.open(CACHE).then(function(c){ c.put(e.request, resClone); });
-        return res;
-      }).catch(function(){ return cached; });
+    fetch(e.request).then(function(res){
+      var resClone = res.clone();
+      caches.open(CACHE).then(function(c){ c.put(e.request, resClone); });
+      return res;
+    }).catch(function(){
+      return caches.match(e.request);
     })
   );
 });
