@@ -954,25 +954,26 @@
     parts.push('<path d="M104,110 C113,112 120,118 125,126 L'+(hx-4)+','+(hy+2)+' L'+(hx-10)+','+(hy+8)+' L116,130 C111,122 106,116 99,112 Z" fill="'+JACKET+'"/>');
     parts.push('<circle cx="'+(hx-2)+'" cy="'+(hy+4)+'" r="5.5" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad)"/>');
-    parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad)"/>');
+    var head = [];
+    head.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad)"/>');
+    head.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad)"/>');
 
-    parts.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
+    head.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad)"/>');
-    parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
-    parts.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
+    head.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad)"/>');
+    head.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
+    head.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
+    head.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
+    head.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+    head.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+    head.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
 
     var ey = 66 + band.brow*0.4;
     var browY = 51 + band.brow*0.3;
-    parts.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+    head.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+    head.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
 
-    [84, 110].forEach(function(ex, ei){
+    [84, 110].forEach(function(ex){
       var eye = [];
       eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="8" ry="10" fill="#ffffff"/>');
       eye.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="6.4" ry="8" fill="url(#irisGrad)"/>');
@@ -981,23 +982,28 @@
       eye.push('<circle cx="'+(ex+2.6)+'" cy="'+(ey+4.2)+'" r="1.1" fill="#ffffff" opacity="0.9"/>');
       eye.push('<circle cx="'+(ex-3.6)+'" cy="'+(ey+1)+'" r="0.7" fill="#ffffff" opacity="0.7"/>');
       eye.push('<path d="M'+(ex-8)+','+(ey-6)+' Q'+ex+','+(ey-10)+' '+(ex+8)+','+(ey-6)+'" stroke="'+HAIR+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
-      parts.push('<g class="mascot-eye" style="animation-delay:'+(ei*0.12)+'s">' + eye.join('') + '</g>');
+      head.push('<g class="mascot-eye">' + eye.join('') + '</g>');
     });
 
-    parts.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
-    parts.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
+    head.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
+    head.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
 
     if(band.smile === 'happy'){
-      parts.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     } else if(band.smile === 'smug'){
-      parts.push('<path d="M89,87 Q97,90 106,84" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M89,87 Q97,90 106,84" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     } else {
-      parts.push('<ellipse cx="97" cy="88" rx="4" ry="5" fill="#7a4a3a" opacity="0.85"/>');
+      head.push('<ellipse cx="97" cy="88" rx="4" ry="5" fill="#7a4a3a" opacity="0.85"/>');
     }
 
     if(band.sweat){
-      parts.push('<path d="M126,38 q5,7 0,12 q-5,-2 -3,-7 q0,-3 3,-5" fill="#bcd6ea" opacity="0.85"/>');
+      head.push('<path d="M126,38 q5,7 0,12 q-5,-2 -3,-7 q0,-3 3,-5" fill="#bcd6ea" opacity="0.85"/>');
     }
+
+    // Head assembly scales down as one unit, pivoted at the neck (97,102) so
+    // the body/collar position doesn't shift — this is what actually fixes
+    // the head-to-body ratio rather than the old fixed r=42 circle.
+    parts.push('<g transform="translate(97,102) scale(0.8) translate(-97,-102)">' + head.join('') + '</g>');
 
     var sparklePts = [[38,30,1.0],[150,50,0.7],[45,90,0.6]];
     for(var i=0; i<band.sparkles; i++){
