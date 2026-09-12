@@ -956,7 +956,9 @@
     var bodyBot = 178 + (squatEff-1)*12;
     var bw = (squatEff-1)*9;
     var lx = (stanceEff-1)*9;
-    var hx = 142, hy = 116;
+    // Weapon classes grip further out than the mage's small orb so a much
+    // larger weapon has room to clear the head/hair silhouette.
+    var hx = (classId === 'mage') ? 142 : 158, hy = 116;
 
     var bg = [];
     bg.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot'+uid+')"/>');
@@ -1089,32 +1091,57 @@
       parts.push('<path class="mascot-sparkle" style="animation-delay:'+(i*0.35)+'s" d="M'+sx+','+sy+' l'+(1.6*sc)+','+(4.3*sc)+' l'+(4.3*sc)+','+(1.6*sc)+' l'+(-4.3*sc)+','+(1.6*sc)+' l'+(-1.6*sc)+','+(4.3*sc)+' l'+(-1.6*sc)+','+(-4.3*sc)+' l'+(-4.3*sc)+','+(-1.6*sc)+' l'+(4.3*sc)+','+(-1.6*sc)+' Z" fill="'+color+'" opacity="0.75"/>');
     }
 
-    // Held item — the one silhouette element unique to each class.
+    // Held item — the one silhouette element unique to each class. Every
+    // weapon (everything but the mage's small orb) is sized to roughly span
+    // the avatar's own height (viewBox is 200x220), so it reads as an actual
+    // weapon rather than an accessory.
     var orb = [];
     if(classId === 'ranger'){
-      orb.push('<path d="M'+(hx-2)+','+(hy-16)+' Q'+(hx+14)+','+hy+' '+(hx-2)+','+(hy+16)+'" stroke="'+HAIR+'" stroke-width="3" fill="none" stroke-linecap="round"/>');
-      orb.push('<path d="M'+(hx-2)+','+(hy-16)+' L'+(hx-2)+','+(hy+16)+'" stroke="'+SHIRT+'" stroke-width="1.2"/>');
+      var bowTop = 8, bowBot = 204, bowMid = (bowTop+bowBot)/2, bowBulge = 30;
+      orb.push('<path d="M'+hx+','+bowTop+' Q'+(hx+bowBulge)+','+bowMid+' '+hx+','+bowBot+'" stroke="'+HAIR+'" stroke-width="4" fill="none" stroke-linecap="round"/>');
+      orb.push('<path d="M'+(hx-1)+','+bowTop+' L'+(hx-1)+','+bowBot+'" stroke="'+SHIRT+'" stroke-width="1.2"/>');
+      orb.push('<path d="M'+(hx-1)+','+hy+' L'+(hx+34)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.5"/>');
+      orb.push('<path d="M'+(hx+34)+','+hy+' L'+(hx+27)+','+(hy-3)+' L'+(hx+27)+','+(hy+3)+' Z" fill="'+SHIRT+'"/>');
+      orb.push('<path d="M'+(hx-1)+','+hy+' l-6,-4 M'+(hx-1)+','+hy+' l-6,4" stroke="'+SHIRT+'" stroke-width="1.2" stroke-linecap="round"/>');
     } else if(classId === 'knight'){
-      orb.push('<path d="M'+hx+','+(hy-18)+' L'+(hx+3)+','+(hy-18)+' L'+(hx+2)+','+(hy+8)+' L'+(hx-2)+','+(hy+8)+' Z" fill="'+SHIRT+'"/>');
-      orb.push('<rect x="'+(hx-6)+'" y="'+(hy+7)+'" width="12" height="3" fill="'+HAIR+'"/>');
-      orb.push('<rect x="'+(hx-1.5)+'" y="'+(hy+10)+'" width="3" height="8" fill="'+HAIR_HI+'"/>');
+      var bladeTip = 15, bladeLen = 150, bladeBase = bladeTip + bladeLen, guardY = bladeBase, gripBot = guardY + 22, pommelY = gripBot + 3;
+      orb.push('<path d="M'+hx+','+bladeTip+' L'+(hx+4)+','+(bladeTip+14)+' L'+(hx+4)+','+bladeBase+' L'+(hx-4)+','+bladeBase+' L'+(hx-4)+','+(bladeTip+14)+' Z" fill="'+SHIRT+'"/>');
+      orb.push('<path d="M'+hx+','+(bladeTip+16)+' L'+hx+','+(bladeBase-4)+'" stroke="'+HAIR_HI+'" stroke-width="1" opacity="0.6"/>');
+      orb.push('<rect x="'+(hx-14)+'" y="'+guardY+'" width="28" height="5" rx="1.5" fill="'+HAIR+'"/>');
+      orb.push('<rect x="'+(hx-2.5)+'" y="'+(guardY+5)+'" width="5" height="'+(gripBot-guardY-5)+'" fill="'+HAIR_HI+'"/>');
+      orb.push('<circle cx="'+hx+'" cy="'+pommelY+'" r="5" fill="'+HAIR+'"/>');
+      // Smaller shield on the idle hand, sized well under the sword.
+      orb.push('<path d="M58,124 L72,133 L72,158 L58,173 L44,158 L44,133 Z" fill="'+HAIR+'" stroke="'+HAIR_HI+'" stroke-width="1.5"/>');
+      orb.push('<path d="M58,131 L58,164" stroke="'+SHIRT+'" stroke-width="2.5" stroke-linecap="round"/>');
+      orb.push('<path d="M47,148 L69,148" stroke="'+SHIRT+'" stroke-width="2.5" stroke-linecap="round"/>');
     } else if(classId === 'demon'){
-      orb.push('<path d="M'+hx+','+(hy-14)+' C'+(hx+8)+','+(hy-4)+' '+(hx+6)+','+(hy+8)+' '+hx+','+(hy+10)+' C'+(hx-6)+','+(hy+8)+' '+(hx-8)+','+(hy-4)+' '+hx+','+(hy-14)+' Z" fill="'+SHIRT+'" filter="url(#'+band.glowF+uid+')"/>');
-      orb.push('<path d="M'+hx+','+(hy-6)+' C'+(hx+3)+','+hy+' '+(hx+2)+','+(hy+6)+' '+hx+','+(hy+7)+' C'+(hx-2)+','+(hy+6)+' '+(hx-3)+','+hy+' '+hx+','+(hy-6)+' Z" fill="#ffe9c4" opacity="0.9"/>');
+      var lanceTip = 2, lanceShaftTop = 30, lanceShaftBot = 200;
+      orb.push('<path d="M'+hx+','+lanceTip+' L'+(hx+9)+','+lanceShaftTop+' L'+(hx-9)+','+lanceShaftTop+' Z" fill="'+SHIRT+'" filter="url(#'+band.glowF+uid+')"/>');
+      orb.push('<path d="M'+hx+',8 L'+(hx+4)+','+lanceShaftTop+' L'+(hx-4)+','+lanceShaftTop+' Z" fill="#ffe9c4" opacity="0.85"/>');
+      orb.push('<rect x="'+(hx-2.5)+'" y="'+lanceShaftTop+'" width="5" height="'+(lanceShaftBot-lanceShaftTop)+'" fill="'+HAIR+'"/>');
+      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="7" fill="none" stroke="'+HAIR_HI+'" stroke-width="2.5"/>');
+      orb.push('<rect x="'+(hx-3.5)+'" y="'+lanceShaftBot+'" width="7" height="8" fill="'+HAIR_HI+'"/>');
     } else if(classId === 'dwarf'){
-      orb.push('<rect x="'+(hx-1.5)+'" y="'+(hy-16)+'" width="3" height="30" fill="'+HAIR+'"/>');
-      orb.push('<path d="M'+hx+','+(hy-16)+' L'+(hx+12)+','+(hy-10)+' L'+(hx+12)+','+(hy-2)+' L'+hx+','+(hy+2)+' Z" fill="'+SHIRT+'"/>');
+      var axeShaftTop = 22, axeShaftBot = 204;
+      orb.push('<rect x="'+(hx-2.5)+'" y="'+axeShaftTop+'" width="5" height="'+(axeShaftBot-axeShaftTop)+'" fill="'+HAIR+'"/>');
+      orb.push('<path d="M'+hx+','+axeShaftTop+' C'+(hx+34)+','+(axeShaftTop-8)+' '+(hx+38)+','+(axeShaftTop+38)+' '+hx+','+(axeShaftTop+46)+' C'+(hx+16)+','+(axeShaftTop+36)+' '+(hx+16)+','+(axeShaftTop+8)+' '+hx+','+axeShaftTop+' Z" fill="'+SHIRT+'" stroke="'+HAIR_HI+'" stroke-width="1"/>');
+      orb.push('<path d="M'+hx+','+(axeShaftTop+10)+' L'+(hx-15)+','+(axeShaftTop+18)+' L'+hx+','+(axeShaftTop+26)+' Z" fill="'+HAIR_HI+'"/>');
     } else if(classId === 'murloc'){
-      orb.push('<path d="M'+hx+','+(hy-14)+' L'+(hx+3)+','+(hy-14)+' L'+(hx+1.5)+','+(hy+2)+' L'+(hx-1.5)+','+(hy+2)+' Z" fill="'+SHIRT+'"/>');
-      orb.push('<rect x="'+(hx-5)+'" y="'+(hy+1)+'" width="10" height="2.5" fill="'+HAIR+'"/>');
-      orb.push('<rect x="'+(hx-1.2)+'" y="'+(hy+3)+'" width="2.4" height="6" fill="'+HAIR_HI+'"/>');
+      var forkShaftTop = 34, forkShaftBot = 204;
+      orb.push('<rect x="'+(hx-2.5)+'" y="'+forkShaftTop+'" width="5" height="'+(forkShaftBot-forkShaftTop)+'" fill="'+HAIR+'"/>');
+      orb.push('<rect x="'+(hx-10)+'" y="'+(forkShaftTop-3)+'" width="20" height="4" rx="1" fill="'+HAIR_HI+'"/>');
+      orb.push('<path d="M'+hx+','+forkShaftTop+' L'+hx+',4" stroke="'+SHIRT+'" stroke-width="3.5" stroke-linecap="round"/>');
+      orb.push('<path d="M'+(hx-7)+','+forkShaftTop+' Q'+(hx-9)+',18 '+(hx-9)+',4" stroke="'+SHIRT+'" stroke-width="3.5" fill="none" stroke-linecap="round"/>');
+      orb.push('<path d="M'+(hx+7)+','+forkShaftTop+' Q'+(hx+9)+',18 '+(hx+9)+',4" stroke="'+SHIRT+'" stroke-width="3.5" fill="none" stroke-linecap="round"/>');
     } else {
       orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+uid+')"/>');
       orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
       orb.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
       orb.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
     }
-    parts.push('<g class="mascot-orb">' + orb.join('') + '</g>');
+    // Only the mage's magical orb pulses — a sword/axe/lance/bow/pitchfork
+    // shouldn't visually throb, so weapons get a plain, unanimated group.
+    parts.push('<g class="'+(classId==='mage' ? 'mascot-orb' : 'mascot-item')+'">' + orb.join('') + '</g>');
 
     return (
       '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
