@@ -982,9 +982,10 @@
   // dark manhwa "shadow hunter" palette — deep near-black coats/hoods, a
   // muted skin sliver, and one accent used for glow (weapon/visor/aura tie-in
   // color is the mood aura, not the scheme accent — see mascotSVG).
-  // Body silhouette (bulk) reacts to the user's actual logged weight vs. height;
-  // pose/posture/aura still react to the short-term calorie trend (physiqueState).
-  var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','murloc'];
+  // Body/posture/aura react only to the short-term calorie trend
+  // (physiqueState) plus a fixed per-class build — deliberately NOT the
+  // user's actual weight/BMI, see the wellbeing note in CLAUDE.md.
+  var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','merrow'];
   var AVATAR_CLASSES = {
     mage: { label:'Mage', bulkBase:1.0, schemes:[
       {name:'Void Blue',     skin:'#d9a877', body:'#232733', bodyDark:'#14171e', trim:'#0d0f14', trimHi:'#3a4a6b', accent:'#6d8fd6'},
@@ -1021,7 +1022,7 @@
       {name:'Midnight Clan',skin:'#d2a273', body:'#1b232e', bodyDark:'#0f141a', trim:'#24303d', trimHi:'#445a70', accent:'#7fa0c9'},
       {name:'Golden Braid', skin:'#d2a273', body:'#2b2412', bodyDark:'#160f08', trim:'#4a3c18', trimHi:'#8a6f2c', accent:'#d6b558'}
     ]},
-    murloc: { label:'Murloc', bulkBase:0.95, schemes:[
+    merrow: { label:'Merrow', bulkBase:0.95, schemes:[
       {name:'Reef Green',   skin:'#294530', body:'#161c20', bodyDark:'#0c0f11', trim:'#0a1210', trimHi:'#3a6b4a', accent:'#6ed69a'},
       {name:'Tidal Blue',   skin:'#1e3a4a', body:'#141c22', bodyDark:'#0a0f12', trim:'#0a1216', trimHi:'#2e5a70', accent:'#6ec6e0'},
       {name:'Coral',        skin:'#4a2530', body:'#201418', bodyDark:'#110b0d', trim:'#160c0f', trimHi:'#6b2e3d', accent:'#d67d90'},
@@ -1037,29 +1038,7 @@
     return { cls: cls, idx: idx };
   }
 
-  // Most recent logged body weight on or before the current date, falling back
-  // to the profile baseline weight — used to size the avatar's silhouette.
-  function latestLoggedWeightKg(){
-    var dates = trackedDatesSorted().filter(function(d){ return d <= currentDate; });
-    for(var i = dates.length - 1; i >= 0; i--){
-      var day = logs[dates[i]];
-      if(day && day.weight != null) return day.weight;
-    }
-    return settings.weightKg || null;
-  }
-
-  // Continuous body-size multiplier from BMI (~0.85 lean .. 1.35 heavy), neutral
-  // (1.0) when there isn't enough data yet to compute one.
-  function bodyBulkFactor(){
-    var wKg = latestLoggedWeightKg();
-    var hCm = settings.heightCm;
-    if(!wKg || !hCm) return 1;
-    var bmi = wKg / Math.pow(hCm/100, 2);
-    var t = clamp((bmi - 18.5) / (32 - 18.5), 0, 1);
-    return lerp(0.85, 1.35, t);
-  }
-
-  function mascotSVG(score, bulk, classId, schemeIdx){
+  function mascotSVG(score, classId, schemeIdx){
     var cdef = AVATAR_CLASSES[classId] || AVATAR_CLASSES.mage;
     if(!classId || !AVATAR_CLASSES[classId]) classId = 'mage';
     var pal = cdef.schemes[schemeIdx] || cdef.schemes[0];
@@ -1077,9 +1056,14 @@
     else if(score < 2.2)   band = { tier:'Novice',    bend:4,   cape:0.5,  aura:0.28, power:0.92, particles:1, browAngle:0 };
     else                    band = { tier:'Dormant',   bend:6.5, cape:0.28, aura:0.1,  power:0.85, particles:0, browAngle:-3 };
 
-    // Body size: short-term calorie-trend "power" combined with the user's
-    // actual weight-for-height (bulk) and a per-class base build.
-    var bulkEff = clamp((bulk||1) * (cdef.bulkBase||1), 0.75, 1.45);
+    // Body size reflects the short-term calorie-trend power tier and a
+    // fixed per-class build (e.g. dwarves run stouter) — deliberately NOT
+    // the user's actual body/weight. An earlier version multiplied in a
+    // real-BMI-derived factor; removed because tying a gamified avatar's
+    // size to someone's actual body, on top of their mood-based state, risks
+    // reading as a standing judgment about their body rather than their
+    // recent habits. Keep it this way — see CLAUDE.md.
+    var bulkEff = clamp(cdef.bulkBase||1, 0.75, 1.45);
     var squatEff = clamp(band.power * bulkEff, 0.7, 1.7);
     var stanceEff = clamp(band.power * (1 + (bulkEff-1)*0.7), 0.7, 1.7);
     var bw = (squatEff-1)*11;
@@ -1164,15 +1148,17 @@
     } else if(classId === 'dwarf'){
       head.push('<path d="M'+(cx-headR-2)+','+(headCy-2)+' C'+(cx-headR)+','+(headCy-22)+' '+(cx-8)+','+(headCy-headR-6)+' '+cx+','+(headCy-headR-6)+' C'+(cx+8)+','+(headCy-headR-6)+' '+(cx+headR)+','+(headCy-22)+' '+(cx+headR+2)+','+(headCy-2)+' L'+(cx+headR-4)+','+(headCy-4)+' C'+(cx+headR-4)+','+(headCy-18)+' '+(cx+7)+','+(headCy-headR)+' '+cx+','+(headCy-headR)+' C'+(cx-7)+','+(headCy-headR)+' '+(cx-headR+4)+','+(headCy-18)+' '+(cx-headR+4)+','+(headCy-4)+' Z" fill="'+HAIR+'"/>');
       head.push('<path d="M'+(cx-15)+','+(headCy+6)+' C'+(cx-16)+','+(headCy+26)+' '+(cx-7)+','+(headCy+38)+' '+cx+','+(headCy+39)+' C'+(cx+7)+','+(headCy+38)+' '+(cx+16)+','+(headCy+26)+' '+(cx+15)+','+(headCy+6)+' C'+(cx+11)+','+(headCy+20)+' '+(cx+6)+','+(headCy+26)+' '+cx+','+(headCy+26)+' C'+(cx-6)+','+(headCy+26)+' '+(cx-11)+','+(headCy+20)+' '+(cx-15)+','+(headCy+6)+' Z" fill="'+HAIR_HI+'" stroke="'+HAIR+'" stroke-width="1"/>');
-    } else if(classId === 'murloc'){
-      head.push('<path d="M'+cx+','+(headCy-headR-10)+' L'+(cx+5)+','+(headCy-headR+2)+' L'+(cx-5)+','+(headCy-headR+2)+' Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M'+cx+','+(headCy-headR+2)+' L'+(cx+4)+','+(headCy-headR+14)+' L'+(cx-4)+','+(headCy-headR+14)+' Z" fill="'+HAIR+'" opacity="0.85"/>');
+    } else if(classId === 'merrow'){
+      // A single sweeping fin (not a trademark-specific stacked-spike crest)
+      // — see the IP note in CLAUDE.md before changing this back.
+      head.push('<path d="M'+cx+','+(headCy-headR-8)+' C'+(cx+9)+','+(headCy-headR+4)+' '+(cx+10)+','+(headCy+2)+' '+(cx+5)+','+(headCy+12)+' C'+(cx+3)+','+(headCy+2)+' '+(cx+1)+','+(headCy-headR+6)+' '+cx+','+(headCy-headR-8)+' Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M'+cx+','+(headCy-headR-8)+' C'+(cx-9)+','+(headCy-headR+4)+' '+(cx-10)+','+(headCy+2)+' '+(cx-5)+','+(headCy+12)+' C'+(cx-3)+','+(headCy+2)+' '+(cx-1)+','+(headCy-headR+6)+' '+cx+','+(headCy-headR-8)+' Z" fill="'+HAIR+'" opacity="0.75"/>');
     }
 
     // Eyes — thin glowing almond slits (or a visor bar for the knight), the
     // focal point of the whole design. Brighter/wider at higher power tiers.
     var eyeY = headCy + 1, eyeGap = 8;
-    var eyeScale = classId === 'murloc' ? 1.25 : 1;
+    var eyeScale = classId === 'merrow' ? 1.25 : 1;
     var eyeOpacity = (0.5 + band.aura*0.5).toFixed(2);
     if(classId === 'knight'){
       head.push('<g class="mascot-eye"><rect x="'+(cx-13)+'" y="'+(eyeY-2)+'" width="26" height="4" rx="2" fill="'+color+'" filter="url(#eyeglow'+uid+')" opacity="'+eyeOpacity+'"/></g>');
@@ -1183,7 +1169,7 @@
       });
     }
 
-    if(classId !== 'murloc' && classId !== 'knight'){
+    if(classId !== 'merrow' && classId !== 'knight'){
       head.push('<path d="M'+(cx-13)+','+(eyeY-6-band.browAngle*0.3)+' L'+(cx-5)+','+(eyeY-6+band.browAngle*0.3)+'" stroke="'+HAIR+'" stroke-width="2" stroke-linecap="round"/>');
       head.push('<path d="M'+(cx+13)+','+(eyeY-6-band.browAngle*0.3)+' L'+(cx+5)+','+(eyeY-6+band.browAngle*0.3)+'" stroke="'+HAIR+'" stroke-width="2" stroke-linecap="round"/>');
     }
@@ -1214,7 +1200,7 @@
       var axeShaftTop = 20, axeShaftBot = 200;
       weapon.push('<rect x="'+(hx-2.2)+'" y="'+axeShaftTop+'" width="4.4" height="'+(axeShaftBot-axeShaftTop)+'" fill="'+HAIR+'"/>');
       weapon.push('<path d="M'+hx+','+axeShaftTop+' C'+(hx+32)+','+(axeShaftTop-6)+' '+(hx+36)+','+(axeShaftTop+34)+' '+hx+','+(axeShaftTop+42)+' C'+(hx+14)+','+(axeShaftTop+32)+' '+(hx+14)+','+(axeShaftTop+8)+' '+hx+','+axeShaftTop+' Z" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'murloc'){
+    } else if(classId === 'merrow'){
       var forkShaftTop = 32, forkShaftBot = 200;
       weapon.push('<rect x="'+(hx-2.2)+'" y="'+forkShaftTop+'" width="4.4" height="'+(forkShaftBot-forkShaftTop)+'" fill="'+HAIR+'"/>');
       weapon.push('<path d="M'+hx+','+forkShaftTop+' L'+hx+',6" stroke="'+color+'" stroke-width="3" stroke-linecap="round" opacity="0.85"/>');
@@ -1405,7 +1391,6 @@
     var bars = statBars();
     var todaysQuests = questsForDay(todayStr());
     var avatar = getAvatarChoice();
-    var bulk = bodyBulkFactor() * (AVATAR_CLASSES[avatar.cls].bulkBase || 1);
     var justLeveledUp = lastSeenLevel !== null && lvl.level > lastSeenLevel;
     lastSeenLevel = lvl.level;
 
@@ -1426,7 +1411,7 @@
       '<div class="status-panel'+(justLeveledUp?' level-up-flash':'')+'" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
-            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, bulk, avatar.cls, avatar.idx) + '</button>' +
+            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, avatar.cls, avatar.idx) + '</button>' +
             '<span class="status-mascot-hint">Customize</span>' +
           '</div>' +
           '<div class="status-main">' +
@@ -1453,12 +1438,10 @@
     var choice = getAvatarChoice();
     var phys = physiqueState();
     var cdef = AVATAR_CLASSES[choice.cls];
-    var previewBulk = bodyBulkFactor() * (cdef.bulkBase || 1);
 
     var classTiles = AVATAR_CLASS_ORDER.map(function(cid){
       var c = AVATAR_CLASSES[cid];
-      var thumbBulk = 1 * (c.bulkBase || 1);
-      var svg = mascotSVG(0, thumbBulk, cid, choice.idx);
+      var svg = mascotSVG(0, cid, choice.idx);
       return '<button type="button" class="avatar-class-tile'+(cid===choice.cls?' active':'')+'" onclick="App.setAvatarClass(\''+cid+'\')">' +
         '<span class="avatar-class-thumb">'+svg+'</span>' +
         '<span class="avatar-class-name">'+esc(c.label)+'</span>' +
@@ -1473,7 +1456,7 @@
       '<div class="avatar-picker-backdrop" onclick="App.closeAvatarPicker()">' +
         '<div class="avatar-picker" onclick="event.stopPropagation()">' +
           '<div class="avatar-picker-head"><h2>Choose your avatar</h2><button type="button" class="avatar-picker-close" onclick="App.closeAvatarPicker()">&times;</button></div>' +
-          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, previewBulk, choice.cls, choice.idx)+'</div>' +
+          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, choice.cls, choice.idx)+'</div>' +
           '<div class="avatar-class-grid">'+classTiles+'</div>' +
           '<div class="avatar-scheme-row"><span class="avatar-scheme-label">'+esc(cdef.schemes[choice.idx].name)+'</span><div class="avatar-scheme-swatches">'+schemeSwatches+'</div></div>' +
         '</div>' +
