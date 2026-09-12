@@ -360,7 +360,56 @@
     79%,95%{ opacity:1; transform:translateY(0) scale(1); }
   }
   @media (prefers-reduced-motion: reduce){
-    .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb, .mage-ice, .mage-fire, .mage-earth, .mage-tea{ animation:none; }
+    .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb, .mage-ice, .mage-fire, .mage-earth, .mage-tea,
+    .ranger-arrow, .ranger-explosive, .ranger-fire, .ranger-magic1, .ranger-magic2, .ranger-magic3, .ranger-boom-burst{ animation:none; }
+  }
+  /* Ranger: four arrow types on one shared 16s clock, non-overlapping
+     windows, matching the mage's cycle pattern. Each shoots (translateX)
+     and fades rather than just appearing in place. */
+  .ranger-arrow, .ranger-explosive, .ranger-fire, .ranger-magic1, .ranger-magic2, .ranger-magic3{
+    transform-box:fill-box; transform-origin:left center; opacity:0;
+    animation-duration:16s; animation-iteration-count:infinite; animation-timing-function:ease-in;
+  }
+  .ranger-arrow{ animation-name:rangerArrowPhase; }
+  .ranger-explosive{ animation-name:rangerExplosivePhase; }
+  .ranger-fire{ animation-name:rangerFirePhase; }
+  .ranger-magic1{ animation-name:rangerMagic1Phase; }
+  .ranger-magic2{ animation-name:rangerMagic2Phase; }
+  .ranger-magic3{ animation-name:rangerMagic3Phase; }
+  @keyframes rangerArrowPhase{
+    0%,2%,17%,100%{ opacity:0; transform:translateX(0); }
+    4%,9%{ opacity:1; transform:translateX(-3px); }
+    14%{ opacity:1; transform:translateX(6px); }
+    16%{ opacity:0; transform:translateX(9px); }
+  }
+  @keyframes rangerExplosivePhase{
+    0%,25%,42%,100%{ opacity:0; transform:translateX(0); }
+    27%,32%{ opacity:1; transform:translateX(-3px); }
+    38%,40%{ opacity:1; transform:translateX(5px); }
+    41.5%{ opacity:0; transform:translateX(6px); }
+  }
+  @keyframes rangerFirePhase{
+    0%,50%,67%,100%{ opacity:0; transform:translateX(0); }
+    52%,57%{ opacity:1; transform:translateX(-3px); }
+    62%{ opacity:1; transform:translateX(6px); }
+    64%{ opacity:0; transform:translateX(9px); }
+  }
+  @keyframes rangerMagic1Phase{
+    0%,75%,78%,92%,100%{ opacity:0; transform:translateX(0) scale(0.8); }
+    76%,77%{ opacity:1; transform:translateX(5px) scale(1); }
+  }
+  @keyframes rangerMagic2Phase{
+    0%,76.5%,79.5%,93.5%,100%{ opacity:0; transform:translateX(0) scale(0.8); }
+    77.5%,78.5%{ opacity:1; transform:translateX(6px) scale(1); }
+  }
+  @keyframes rangerMagic3Phase{
+    0%,78%,81%,95%,100%{ opacity:0; transform:translateX(0) scale(0.8); }
+    79%,80%{ opacity:1; transform:translateX(5px) scale(1); }
+  }
+  .ranger-boom-burst{ transform-box:fill-box; transform-origin:center; opacity:0; animation:rangerBoomBurst 16s ease-in-out infinite; }
+  @keyframes rangerBoomBurst{
+    0%,38%,41.5%,100%{ opacity:0; }
+    39.5%,40.5%{ opacity:1; }
   }
 
   /* ---------- Avatar picker (class + color scheme) ---------- */
@@ -1229,6 +1278,49 @@
       orb.push('<path d="M'+(hx-1)+','+hy+' L'+(hx+34)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.5"/>');
       orb.push('<path d="M'+(hx+34)+','+hy+' L'+(hx+27)+','+(hy-3)+' L'+(hx+27)+','+(hy+3)+' Z" fill="'+SHIRT+'"/>');
       orb.push('<path d="M'+(hx-1)+','+hy+' l-6,-4 M'+(hx-1)+','+hy+' l-6,4" stroke="'+SHIRT+'" stroke-width="1.2" stroke-linecap="round"/>');
+
+      // Signature move: the resting nocked arrow above is always there, but
+      // every few seconds the ranger actually looses a shot — cycling
+      // through four arrow types on the same shared-clock pattern as the
+      // mage's elemental cycle (one 16s loop, four non-overlapping windows).
+      var nx = hx - 1;
+      orb.push('<g class="ranger-arrow">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+36)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.6"/>' +
+        '<path d="M'+(nx+36)+','+hy+' L'+(nx+29)+','+(hy-3.5)+' L'+(nx+29)+','+(hy+3.5)+' Z" fill="'+SHIRT+'"/>' +
+        '<path d="M'+nx+','+hy+' l-5,-3.5 M'+nx+','+hy+' l-5,3.5" stroke="'+SHIRT+'" stroke-width="1.1" stroke-linecap="round"/>' +
+      '</g>');
+      orb.push('<g class="ranger-explosive">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+26)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.6"/>' +
+        '<circle cx="'+(nx+29)+'" cy="'+hy+'" r="4.2" fill="#b23a3a"/>' +
+        '<path d="M'+(nx+29)+','+(hy-4.2)+' l2,-3" stroke="#e8b04a" stroke-width="1.1" stroke-linecap="round"/>' +
+        '<circle cx="'+(nx+31)+'" cy="'+(hy-7.5)+'" r="1" fill="#ffd97a"/>' +
+        '<g class="ranger-boom-burst">' +
+          '<line x1="'+(nx+29)+'" y1="'+hy+'" x2="'+(nx+29)+'" y2="'+(hy-9)+'" stroke="#ffd97a" stroke-width="1"/>' +
+          '<line x1="'+(nx+29)+'" y1="'+hy+'" x2="'+(nx+29)+'" y2="'+(hy+9)+'" stroke="#ffd97a" stroke-width="1"/>' +
+          '<line x1="'+(nx+29)+'" y1="'+hy+'" x2="'+(nx+38)+'" y2="'+hy+'" stroke="#ffd97a" stroke-width="1"/>' +
+          '<line x1="'+(nx+29)+'" y1="'+hy+'" x2="'+(nx+35)+'" y2="'+(hy-7)+'" stroke="#ffd97a" stroke-width="1"/>' +
+          '<line x1="'+(nx+29)+'" y1="'+hy+'" x2="'+(nx+35)+'" y2="'+(hy+7)+'" stroke="#ffd97a" stroke-width="1"/>' +
+        '</g>' +
+        '<path d="M'+nx+','+hy+' l-5,-3.5 M'+nx+','+hy+' l-5,3.5" stroke="'+SHIRT+'" stroke-width="1.1" stroke-linecap="round"/>' +
+      '</g>');
+      orb.push('<g class="ranger-fire">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+32)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.6"/>' +
+        '<path d="M'+(nx+32)+','+hy+' L'+(nx+25)+','+(hy-3.2)+' L'+(nx+25)+','+(hy+3.2)+' Z" fill="#ff9d4d"/>' +
+        '<path d="M'+(nx+20)+','+(hy-2)+' C '+(nx+15)+','+(hy-5)+' '+(nx+12)+','+(hy-2)+' '+(nx+14)+','+hy+' C '+(nx+11)+','+(hy+2)+' '+(nx+15)+','+(hy+4)+' '+(nx+19)+','+(hy+1.5)+' Z" fill="#ffd97a" opacity="0.85"/>' +
+        '<path d="M'+nx+','+hy+' l-5,-3.5 M'+nx+','+hy+' l-5,3.5" stroke="'+SHIRT+'" stroke-width="1.1" stroke-linecap="round"/>' +
+      '</g>');
+      orb.push('<g class="ranger-magic1">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+34)+','+(hy-14)+'" stroke="'+color+'" stroke-width="1.6" opacity="0.9"/>' +
+        '<circle cx="'+(nx+34)+'" cy="'+(hy-14)+'" r="2.6" fill="'+color+'"/>' +
+      '</g>');
+      orb.push('<g class="ranger-magic2">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+34)+','+hy+'" stroke="'+color+'" stroke-width="1.6" opacity="0.9"/>' +
+        '<circle cx="'+(nx+34)+'" cy="'+hy+'" r="2.6" fill="'+color+'"/>' +
+      '</g>');
+      orb.push('<g class="ranger-magic3">' +
+        '<path d="M'+nx+','+hy+' L'+(nx+34)+','+(hy+14)+'" stroke="'+color+'" stroke-width="1.6" opacity="0.9"/>' +
+        '<circle cx="'+(nx+34)+'" cy="'+(hy+14)+'" r="2.6" fill="'+color+'"/>' +
+      '</g>');
     } else if(classId === 'knight'){
       var bladeTip = 15, bladeLen = 150, bladeBase = bladeTip + bladeLen, guardY = bladeBase, gripBot = guardY + 22, pommelY = gripBot + 3;
       orb.push('<path d="M'+hx+','+bladeTip+' L'+(hx+4)+','+(bladeTip+14)+' L'+(hx+4)+','+bladeBase+' L'+(hx-4)+','+bladeBase+' L'+(hx-4)+','+(bladeTip+14)+' Z" fill="'+SHIRT+'"/>');

@@ -119,17 +119,37 @@ it again if you add another standalone setting.
   is requested again, this is the baseline to iterate from — it was
   explicitly flagged once as "severely lacking" before this pass, so don't
   regress toward plain circles/ellipses.
-- **Signature idle moves, class by class:** so far only the Mage has one —
-  a slow 4-phase elemental cycle (ice → fire → earth → a teacup with
-  steam) layered onto the existing orb, pure CSS (`.mage-ice/-fire/-earth/
-  -tea`, each keyed to non-overlapping percentage windows of one shared
-  12s `animation-duration` — no JS timers, no per-element delays, they
-  share one clock so exactly one phase is ever visible). The other 5
-  classes (ranger drawing/releasing the bow, knight inspecting the blade,
-  demon's wings flaring, dwarf forging and equipping a new weapon, merrow
-  doing something aquatic) are intentionally not built yet — do them the
-  same way: CSS-only, one shared duration per class, non-overlapping
-  keyframe windows, respect `prefers-reduced-motion`.
+- **Signature idle moves, class by class:**
+  - **Mage** — a 4-phase elemental cycle (ice → fire → earth → a teacup
+    with steam), `.mage-ice/-fire/-earth/-tea`, one shared 12s
+    `animation-duration`, non-overlapping keyframe windows so exactly one
+    phase is ever visible.
+  - **Ranger** — a 4-phase arrow cycle (plain → explosive → fire → a
+    3-arrow magic flurry), `.ranger-arrow/-explosive/-fire/-magic1/2/3`,
+    same pattern on a shared 16s duration.
+  - Knight (inspecting the blade), Demon (wings flaring), Dwarf (forging
+    and equipping), Merrow (something aquatic) are not built yet — same
+    approach when they are: CSS-only, one shared duration per class,
+    non-overlapping windows, respect `prefers-reduced-motion`.
+  - **Hard-learned lesson on travel distance:** the weapon-hand position
+    (`hx`/`hy`) already sits near the right edge of the 200-unit-wide
+    viewBox (~194-195 for non-mage classes). Any "shoot/throw" motion that
+    translates an element further right WILL get clipped by the SVG's
+    default `overflow:hidden` past x=200 — this isn't visible in a quick
+    glance because the element is usually fading out at the same time, but
+    it's really there. Keep shoot-motion `translateX` small (≤6-10px) and
+    verify with actual `getBoundingClientRect()` against the parent SVG's
+    rect, not just eyeballing a screenshot — opacity looking right and
+    position being right are independent checks, do both.
+  - **Also avoid `scale()` on a whole multi-part group** (shaft + tip
+    together) for a "grows dramatically" effect like an explosion: with
+    `transform-box:fill-box; transform-origin:left`, the anchor is the
+    *group's* combined bounding box, not the part you want to emphasize —
+    if the shaft starts far from the effect (e.g. an arrow shaft running
+    back to the hand), scaling the whole group amplifies distance from
+    that far-away anchor and blows the effect way past where you'd expect.
+    Prefer a separate small burst/flash element with its own opacity-only
+    timing (see `.ranger-boom-burst`) over scaling a whole compound group.
 - **Rare/mythical weapon "pulls" are not built.** The idea (discussed with
   the user): the dwarf's forge move — and potentially other classes —
   occasionally reveals a rare/mythical/SS-tier weapon variant instead of
