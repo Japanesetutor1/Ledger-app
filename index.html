@@ -277,6 +277,16 @@
   .seg button:last-child{ border-right:none; }
   .seg button.active{ background:var(--surface-3); color:var(--gold); }
   .settings-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+  .backup-section{ margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+  .backup-section h2{ font-size:13px; margin:0 0 8px; font-weight:600; color:var(--gold); }
+  .backup-buttons{ display:flex; gap:10px; margin-top:10px; }
+  .backup-buttons button, .backup-buttons .import-btn{
+    background:var(--surface-3); border:1px solid var(--border); color:var(--text);
+    border-radius:var(--radius); padding:7px 14px; cursor:pointer; font-size:12.5px; font-family:inherit;
+    display:inline-flex; align-items:center;
+  }
+  .backup-buttons button:hover, .backup-buttons .import-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .import-btn input[type="file"]{ display:none; }
   .save-btn{
     background:var(--gold); border:none; color:#191410; font-weight:600;
     border-radius:var(--radius); padding:8px 18px; cursor:pointer; font-size:13px;
@@ -291,6 +301,11 @@
     padding:14px 16px; margin-bottom:20px; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
   }
   .setup-banner button{ background:var(--gold); border:none; color:#191410; font-weight:600; border-radius:var(--radius); padding:7px 14px; cursor:pointer; font-size:12.5px; }
+  .backup-reminder{ border-color:#5fa8d3; }
+  .backup-reminder-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .backup-reminder-actions button:first-child{ background:#5fa8d3; color:#0d1720; }
+  .backup-reminder-actions .reminder-dismiss{ background:none; border:1px solid var(--border); color:var(--text-dim); }
+  .backup-reminder-actions .reminder-dismiss:hover{ color:var(--text); border-color:var(--text-dim); }
 
   .loading{ color:var(--text-dim); padding:40px 0; text-align:center; font-family:'IBM Plex Mono',monospace; }
 
@@ -399,7 +414,8 @@
 (function(){
   // Outside the Claude artifact environment window.storage doesn't exist —
   // fall back to localStorage so the app works standalone on a phone.
-  if(!window.storage){
+  var usingLocalFallback = !window.storage;
+  if(usingLocalFallback){
     window.storage = {
       get: async function(key){
         try{
@@ -431,6 +447,53 @@
         }catch(e){ return null; }
       }
     };
+    // Ask the browser not to evict this site's storage under pressure.
+    // Real mitigation for iOS Safari's well-documented localStorage-eviction
+    // issue on installed home-screen apps — not a full guarantee, but a
+    // legitimate, harmless request supported by most browsers.
+    if(navigator.storage && navigator.storage.persist){
+      navigator.storage.persist().catch(function(){});
+    }
+  }
+
+  // Second, independent storage backend (IndexedDB) mirrored alongside
+  // localStorage whenever running standalone. Two unrelated storage systems
+  // are very unlikely to both get evicted at once, and this needs zero
+  // action from the user — it's the "auto backup" safety belt. Every write
+  // goes to both; on load, whichever side actually has data wins, and the
+  // other side gets silently repaired from it.
+  function idbOpen(){
+    return new Promise(function(resolve, reject){
+      if(!('indexedDB' in window)) return reject(new Error('no indexedDB'));
+      var req = indexedDB.open('ledger-backup', 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore('kv'); };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function idbSet(key, value){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try{
+          var tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(value, key);
+          tx.oncomplete = function(){ resolve(true); };
+          tx.onerror = function(){ resolve(false); };
+        }catch(e){ resolve(false); }
+      });
+    }).catch(function(){ return false; });
+  }
+  function idbGet(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try{
+          var tx = db.transaction('kv', 'readonly');
+          var req = tx.objectStore('kv').get(key);
+          req.onsuccess = function(){ resolve(req.result != null ? req.result : null); };
+          req.onerror = function(){ resolve(null); };
+        }catch(e){ resolve(null); }
+      });
+    }).catch(function(){ return null; });
   }
 
   if('serviceWorker' in navigator){
@@ -449,6 +512,7 @@
   var currentDate = todayStr();
   var settingsOpen = false;
   var avatarPickerOpen = false;
+  var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
 
@@ -659,44 +723,70 @@
   };
 
   async function loadState(){
-    try{
-      var s = await window.storage.get('settings');
-      settings = s && s.value ? JSON.parse(s.value) : {};
-    }catch(e){ settings = {}; }
-    try{
-      var l = await window.storage.get('logs');
-      logs = l && l.value ? JSON.parse(l.value) : {};
-    }catch(e){ logs = {}; }
-    try{
-      var f = await window.storage.get('favorites');
-      if(f && f.value){
-        favorites = JSON.parse(f.value);
-        if(!favorites.food) favorites.food = [];
-        if(!favorites.exercise) favorites.exercise = [];
-      } else {
-        // First run: seed with the common-foods starter set, then persist it.
-        favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES));
-        await saveFavorites();
+    // settings
+    var sLocal = null;
+    try{ var s = await window.storage.get('settings'); sLocal = (s && s.value) ? s.value : null; }catch(e){}
+    var sIdb = usingLocalFallback ? await idbGet('settings') : null;
+    var settingsRaw = sLocal || sIdb || null;
+    settings = settingsRaw ? JSON.parse(settingsRaw) : {};
+    if(usingLocalFallback && settingsRaw){
+      if(!sLocal) window.storage.set('settings', settingsRaw, false).catch(function(){});
+      if(!sIdb) idbSet('settings', settingsRaw);
+    }
+
+    // logs
+    var lLocal = null;
+    try{ var l = await window.storage.get('logs'); lLocal = (l && l.value) ? l.value : null; }catch(e){}
+    var lIdb = usingLocalFallback ? await idbGet('logs') : null;
+    var logsRaw = lLocal || lIdb || null;
+    logs = logsRaw ? JSON.parse(logsRaw) : {};
+    if(usingLocalFallback && logsRaw){
+      if(!lLocal) window.storage.set('logs', logsRaw, false).catch(function(){});
+      if(!lIdb) idbSet('logs', logsRaw);
+    }
+
+    // favorites
+    var fLocal = null;
+    try{ var f = await window.storage.get('favorites'); fLocal = (f && f.value) ? f.value : null; }catch(e){}
+    var fIdb = usingLocalFallback ? await idbGet('favorites') : null;
+    var favoritesRaw = fLocal || fIdb || null;
+    if(favoritesRaw){
+      favorites = JSON.parse(favoritesRaw);
+      if(!favorites.food) favorites.food = [];
+      if(!favorites.exercise) favorites.exercise = [];
+      if(usingLocalFallback){
+        if(!fLocal) window.storage.set('favorites', favoritesRaw, false).catch(function(){});
+        if(!fIdb) idbSet('favorites', favoritesRaw);
       }
-    }catch(e){ favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES)); }
+    } else {
+      // First run on both sides: seed with the common-foods starter set.
+      favorites = JSON.parse(JSON.stringify(DEFAULT_FAVORITES));
+      await saveFavorites();
+    }
   }
   async function saveSettings(){
+    var json = JSON.stringify(settings);
     try{
-      var r = await window.storage.set('settings', JSON.stringify(settings), false);
+      var r = await window.storage.set('settings', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('settings', json);
   }
   async function saveLogs(){
+    var json = JSON.stringify(logs);
     try{
-      var r = await window.storage.set('logs', JSON.stringify(logs), false);
+      var r = await window.storage.set('logs', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('logs', json);
   }
   async function saveFavorites(){
+    var json = JSON.stringify(favorites);
     try{
-      var r = await window.storage.set('favorites', JSON.stringify(favorites), false);
+      var r = await window.storage.set('favorites', json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
+    if(usingLocalFallback) idbSet('favorites', json);
   }
 
   function ensureDay(dateStr){
@@ -755,6 +845,22 @@
       return day && ((day.food && day.food.length) || (day.exercise && day.exercise.length) || day.weight != null);
     }).sort();
   }
+
+  function shouldShowBackupReminder(){
+    if(!usingLocalFallback) return false; // no need inside the Claude artifact — that storage is already durable
+    if(reminderDismissed) return false;
+    if(trackedDatesSorted().length === 0) return false; // nothing worth backing up yet
+    var last = settings.lastExportAt;
+    if(!last) return true;
+    var daysSince = (Date.now() - last) / 86400000;
+    return daysSince >= 3;
+  }
+  function backupReminderText(){
+    if(!settings.lastExportAt) return "You haven't exported a backup yet — a quick safety net against your phone clearing local data.";
+    var days = Math.floor((Date.now() - settings.lastExportAt) / 86400000);
+    return "It's been " + days + " days since your last backup export.";
+  }
+
   function lastNTrackedDates(n){
     var dates = trackedDatesSorted();
     var upTo = dates.filter(function(d){ return d <= currentDate; });
@@ -1005,54 +1111,56 @@
     parts.push('<path d="M104,110 C113,112 120,118 125,126 L'+(hx-4)+','+(hy+2)+' L'+(hx-10)+','+(hy+8)+' L116,130 C111,122 106,116 99,112 Z" fill="'+JACKET+'"/>');
     parts.push('<circle cx="'+(hx-2)+'" cy="'+(hy+4)+'" r="5.5" fill="'+SKIN+'"/>');
 
+    var head = [];
+
     // Behind-skull layer (temple hair / cheek guards), drawn before the skull disc.
     if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
-      parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad'+uid+')"/>');
-      parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad'+uid+')"/>');
+      head.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad'+uid+')"/>');
+      head.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad'+uid+')"/>');
     } else if(classId === 'knight'){
-      parts.push('<path d="M55,50 C50,62 52,76 60,86 L68,80 C62,72 61,60 64,50 Z" fill="'+HAIR+'"/>');
-      parts.push('<path d="M139,50 C144,62 142,76 134,86 L126,80 C132,72 133,60 130,50 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M55,50 C50,62 52,76 60,86 L68,80 C62,72 61,60 64,50 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M139,50 C144,62 142,76 134,86 L126,80 C132,72 133,60 130,50 Z" fill="'+HAIR+'"/>');
     }
 
-    parts.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
+    head.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
 
     // Front head covering — this is the main class silhouette (hair / helmet / horns / fin).
     if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
-      parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad'+uid+')"/>');
-      parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
-      parts.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
-      parts.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
-      parts.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-      parts.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-      parts.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
+      head.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad'+uid+')"/>');
+      head.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
+      head.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
     } else if(classId === 'knight'){
-      parts.push('<path d="M55,58 C50,30 66,8 97,8 C128,8 144,30 139,58 C136,44 128,32 116,26 L116,34 C108,28 90,28 82,34 L82,26 C70,32 58,44 55,58 Z" fill="'+HAIR+'"/>');
-      parts.push('<path d="M97,10 L97,28" stroke="'+HAIR_HI+'" stroke-width="3" stroke-linecap="round"/>');
-      parts.push('<path d="M90,12 L97,2 L104,12 Z" fill="'+HAIR_HI+'"/>');
+      head.push('<path d="M55,58 C50,30 66,8 97,8 C128,8 144,30 139,58 C136,44 128,32 116,26 L116,34 C108,28 90,28 82,34 L82,26 C70,32 58,44 55,58 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M97,10 L97,28" stroke="'+HAIR_HI+'" stroke-width="3" stroke-linecap="round"/>');
+      head.push('<path d="M90,12 L97,2 L104,12 Z" fill="'+HAIR_HI+'"/>');
     } else if(classId === 'demon'){
-      parts.push('<path d="M70,20 C80,10 114,10 124,20 C114,16 80,16 70,20 Z" fill="'+HAIR+'" opacity="0.85"/>');
-      parts.push('<path d="M74,30 C68,16 60,6 48,2 C60,6 68,16 72,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
-      parts.push('<path d="M120,30 C126,16 134,6 146,2 C134,6 126,16 122,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
-      parts.push('<circle cx="49" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
-      parts.push('<circle cx="145" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
+      head.push('<path d="M70,20 C80,10 114,10 124,20 C114,16 80,16 70,20 Z" fill="'+HAIR+'" opacity="0.85"/>');
+      head.push('<path d="M74,30 C68,16 60,6 48,2 C60,6 68,16 72,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
+      head.push('<path d="M120,30 C126,16 134,6 146,2 C134,6 126,16 122,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
+      head.push('<circle cx="49" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
+      head.push('<circle cx="145" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
     } else if(classId === 'murloc'){
-      parts.push('<path d="M97,6 L104,20 L90,20 Z" fill="'+HAIR+'"/>');
-      parts.push('<path d="M97,20 L103,32 L91,32 Z" fill="'+HAIR+'" opacity="0.9"/>');
-      parts.push('<path d="M97,34 L102,44 L92,44 Z" fill="'+HAIR+'" opacity="0.8"/>');
-      parts.push('<path d="M97,6 L97,44" stroke="'+HAIR_HI+'" stroke-width="1.2" opacity="0.6"/>');
-      parts.push('<path d="M60,74 C64,78 64,84 60,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
-      parts.push('<path d="M134,74 C130,78 130,84 134,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M97,6 L104,20 L90,20 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M97,20 L103,32 L91,32 Z" fill="'+HAIR+'" opacity="0.9"/>');
+      head.push('<path d="M97,34 L102,44 L92,44 Z" fill="'+HAIR+'" opacity="0.8"/>');
+      head.push('<path d="M97,6 L97,44" stroke="'+HAIR_HI+'" stroke-width="1.2" opacity="0.6"/>');
+      head.push('<path d="M60,74 C64,78 64,84 60,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M134,74 C130,78 130,84 134,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
     }
 
     var browY = 51 + band.brow*0.3;
     if(classId !== 'murloc'){
-      parts.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-      parts.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     }
 
     var ey = 66 + band.brow*0.4;
     var eyeScale = classId === 'murloc' ? 1.15 : 1;
-    [84, 110].forEach(function(ex, ei){
+    [84, 110].forEach(function(ex){
       var eye = [];
       var rx = 8*eyeScale, ry = 10*eyeScale;
       eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="'+rx+'" ry="'+ry+'" fill="#ffffff"/>');
@@ -1062,28 +1170,33 @@
       eye.push('<circle cx="'+(ex+2.6)+'" cy="'+(ey+4.2)+'" r="1.1" fill="#ffffff" opacity="0.9"/>');
       eye.push('<circle cx="'+(ex-3.6)+'" cy="'+(ey+1)+'" r="0.7" fill="#ffffff" opacity="0.7"/>');
       eye.push('<path d="M'+(ex-8)+','+(ey-6)+' Q'+ex+','+(ey-10)+' '+(ex+8)+','+(ey-6)+'" stroke="'+HAIR+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
-      parts.push('<g class="mascot-eye" style="animation-delay:'+(ei*0.12)+'s">' + eye.join('') + '</g>');
+      head.push('<g class="mascot-eye">' + eye.join('') + '</g>');
     });
 
-    parts.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
-    parts.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
+    head.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
+    head.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
 
     if(classId === 'dwarf'){
-      parts.push('<path d="M72,78 C70,96 78,112 97,116 C116,112 124,96 122,78 C118,92 108,100 97,100 C86,100 76,92 72,78 Z" fill="url(#hairGrad'+uid+')"/>');
-      parts.push('<path d="M90,100 L88,112" stroke="'+HAIR_HI+'" stroke-width="2" stroke-linecap="round"/>');
+      head.push('<path d="M72,78 C70,96 78,112 97,116 C116,112 124,96 122,78 C118,92 108,100 97,100 C86,100 76,92 72,78 Z" fill="url(#hairGrad'+uid+')"/>');
+      head.push('<path d="M90,100 L88,112" stroke="'+HAIR_HI+'" stroke-width="2" stroke-linecap="round"/>');
     }
 
     if(band.smile === 'happy'){
-      parts.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     } else if(band.smile === 'smug'){
-      parts.push('<path d="M89,87 Q97,90 106,84" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      head.push('<path d="M89,87 Q97,90 106,84" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     } else {
-      parts.push('<ellipse cx="97" cy="88" rx="4" ry="5" fill="#7a4a3a" opacity="0.85"/>');
+      head.push('<ellipse cx="97" cy="88" rx="4" ry="5" fill="#7a4a3a" opacity="0.85"/>');
     }
 
     if(band.sweat){
-      parts.push('<path d="M126,38 q5,7 0,12 q-5,-2 -3,-7 q0,-3 3,-5" fill="#bcd6ea" opacity="0.85"/>');
+      head.push('<path d="M126,38 q5,7 0,12 q-5,-2 -3,-7 q0,-3 3,-5" fill="#bcd6ea" opacity="0.85"/>');
     }
+
+    // Head assembly scales down as one unit, pivoted at the neck (97,102) so
+    // the body/collar position doesn't shift — this is what actually fixes
+    // the head-to-body ratio rather than the old fixed r=42 circle.
+    parts.push('<g transform="translate(97,102) scale(0.8) translate(-97,-102)">' + head.join('') + '</g>');
 
     var sparklePts = [[38,30,1.0],[150,50,0.7],[45,90,0.6]];
     for(var i=0; i<band.sparkles; i++){
@@ -1275,6 +1388,11 @@
     if(needsSetup && !settingsOpen){
       html += '<div class="setup-banner"><span>Add your stats to calculate baseline burn (BMR). Without them, only logged exercise counts toward burn.</span><button onclick="App.openSettings()">Set up baseline</button></div>';
     }
+    if(shouldShowBackupReminder()){
+      html += '<div class="setup-banner backup-reminder"><span>' + backupReminderText() + '</span>' +
+        '<span class="backup-reminder-actions"><button onclick="App.exportData()">Export now</button>' +
+        '<button class="reminder-dismiss" onclick="App.dismissBackupReminder()">Not now</button></span></div>';
+    }
     html += renderDateNav();
     html += renderSummary(t);
     html += renderWeightStrip();
@@ -1464,6 +1582,17 @@
       '<button class="save-btn" onclick="App.saveSettingsFromForm()">Save baseline</button>' +
       '<button class="reset-link" onclick="App.resetAll()">Reset all data</button>' +
       '</div>';
+
+    html += '<div class="backup-section">' +
+      '<h2>Backup &amp; restore</h2>' +
+      '<div class="baseline-note">iOS Safari can occasionally clear a home-screen app\'s saved data on its own. Export a backup file now and then — importing it fully restores your logs, favorites, and settings.</div>' +
+      '<div class="backup-buttons">' +
+        '<button onclick="App.exportData()">Export backup</button>' +
+        '<label class="import-btn">Import backup<input type="file" accept="application/json" id="importFileInput" onchange="App.importData(this)"></label>' +
+      '</div>' +
+      '<div class="add-row-err" id="importErr"></div>' +
+    '</div>';
+
     html += '</div>';
     return html;
   }
@@ -1867,7 +1996,8 @@
       baselineMode: settings.baselineMode || 'bmr',
       activityMultiplier: activityMultiplier,
       avatarClass: settings.avatarClass,
-      avatarScheme: settings.avatarScheme
+      avatarScheme: settings.avatarScheme,
+      lastExportAt: settings.lastExportAt
     };
     await saveSettings();
     settingsOpen = false;
@@ -1881,6 +2011,59 @@
     await saveSettings();
     await saveLogs();
     render();
+  };
+
+  App.exportData = function(){
+    var payload = {
+      exportedAt: new Date().toISOString(),
+      settings: settings,
+      logs: logs,
+      favorites: favorites
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'ledger-backup-' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+
+    settings.lastExportAt = Date.now();
+    saveSettings();
+    reminderDismissed = true;
+    render();
+  };
+
+  App.dismissBackupReminder = function(){
+    reminderDismissed = true;
+    render();
+  };
+
+  App.importData = async function(inputEl){
+    var errEl = document.getElementById('importErr');
+    if(errEl) errEl.textContent = '';
+    var file = inputEl.files && inputEl.files[0];
+    if(!file) return;
+    try{
+      var text = await file.text();
+      var data = JSON.parse(text);
+      if(!data || typeof data !== 'object' || !data.logs || !data.settings){
+        throw new Error('bad shape');
+      }
+      if(!confirm('Import this backup? It will replace your current data.')) { inputEl.value = ''; return; }
+      settings = data.settings || {};
+      logs = data.logs || {};
+      favorites = data.favorites || { food: [], exercise: [] };
+      await saveSettings();
+      await saveLogs();
+      await saveFavorites();
+      render();
+    }catch(e){
+      if(errEl) errEl.textContent = "Couldn't read that file — make sure it's a Ledger backup export.";
+    }
+    inputEl.value = '';
   };
 
   App.addEntry = async function(type){
