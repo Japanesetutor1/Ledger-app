@@ -63,92 +63,89 @@ it again if you add another standalone setting.
 - Procedurally generated inline SVG (function
   `mascotSVG(score, classId, schemeIdx)`), **not** an image file —
   this is intentional so it can react live to data.
-- **Art direction is Solo Leveling-inspired manhwa, not chibi anime.** The
-  rig went: hooded silhouette → energy-blade figure → chibi anime → this
-  (explicitly requested — a deliberate move *away* from the cutesy
-  "character-creator" look). Leaner adult-ish proportions (~5 heads tall,
-  head r=19 in a 200×220 viewBox), a long dark coat + separate flowing cape
-  behind it, most of the face in shadow, thin glowing almond-slit eyes (or
-  a single visor bar for the knight) as the one bright focal point, no
-  mouth, no blush. Bold dark silhouettes with gradient shading and a thin
-  mood-colored rim-light down the coat's open front, not flat cartoon
-  fills. **Don't regress toward rounded/cutesy/bright** without being
-  asked again — that's the opposite of the intended direction now.
+- The base rig is a chibi anime-style character: big head, big eyes, an
+  animated blink/idle-bob, holding a small item in its raised hand. This
+  design went through several iterations (a hooded silhouette figure, then
+  a Solo-Leveling-inspired energy-blade figure) before landing here — don't
+  regress to those without being asked.
 - **Avatar classes** (`AVATAR_CLASSES` / `AVATAR_CLASS_ORDER`): the user
-  picks one of 6 classes — Mage (default, hood-shadowed face + glowing
-  orb), Ranger (hood + mask + bow/quiver), Knight (full helm, glowing
-  visor slit, sword + shield), Demon (horns + wings + lance, visible
-  skin), Dwarf (beard + axe, stouter base build, visible skin), Merrow
-  (single sweeping fin + bigger eyes + no brows + trident, visible skin).
-  Each class has **5 selectable color schemes** (`cdef.schemes`, palette
-  fields: `skin`/`body`/`bodyDark`/`trim`/`trimHi`/`accent`) — all
-  dark/moody now, not bright. Choice is stored in `settings.avatarClass` /
-  `settings.avatarScheme` and picked via a click-to-open modal
-  (`App.toggleAvatarPicker`) triggered by clicking the mascot itself.
-  Every SVG `id` inside `mascotSVG` (gradients/filters) is suffixed with a
-  per-call `uid` — this is required, not decorative: the picker renders
-  several `mascotSVG()` outputs in the same DOM at once (class tiles + big
-  preview), and unsuffixed ids collide across them.
+  picks one of 6 classes — Mage (default, spiky hair + hoodie + glowing
+  orb), Ranger (hair + bow + quiver), Knight (helmet + pauldrons + sword),
+  Demon (horns + wings + tail + flame), Dwarf (beard + belt + axe, stouter
+  base build), Merrow (fin crest + big eyes + no brows + trident). Each
+  class has **5 selectable color schemes** (`cdef.schemes`, palette fields:
+  `skin`/`body`/`bodyDark`/`trim`/`trimHi`/`accent`). Choice is stored in
+  `settings.avatarClass` / `settings.avatarScheme` and picked via a
+  click-to-open modal (`App.toggleAvatarPicker`) triggered by clicking the
+  mascot itself. Every SVG `id` inside `mascotSVG` (gradients/filters) is
+  suffixed with a per-call `uid` — this is required, not decorative: the
+  picker renders several `mascotSVG()` outputs in the same DOM at once
+  (class tiles + big preview), and unsuffixed ids collide across them.
 - **IP note on original character designs:** original fantasy archetypes
   (a generic mage, knight, fish-humanoid, etc.) are fine. A *named,
   specifically-identifiable* copyrighted/trademarked character is not —
   even a stylized/abstracted redraw. The fish-humanoid class is called
-  "Merrow" (a generic folklore term) and drawn with a single sweeping fin
-  for exactly this reason: an earlier version named it after, and gave it
-  the exact silhouette cues (name + 3-stacked-spike fin) of, a specific
-  trademarked game creature. If asked to add more classes, keep them
-  archetypal, not lifted from a specific named property.
+  "Merrow" (a generic folklore term) for exactly this reason: an earlier
+  version named it after, and gave it the exact silhouette cues of, a
+  specific trademarked game creature. If asked to add more classes, keep
+  them archetypal, not lifted from a specific named property.
 - **Body size deliberately does NOT reflect the user's actual weight/BMI.**
-  It's driven only by the power tier below (`band.power`, short-term
-  calorie-trend) and a fixed per-class `bulkBase` (flavor only — e.g.
-  dwarves run stouter, rangers/merrows leaner — not tied to any real body
-  data). A prior version added a `bodyBulkFactor()` that computed real BMI
-  from logged weight/height and multiplied it into the avatar's size on
-  top of the mood-based scaling. It was removed deliberately: tying a
-  gamified avatar's size to someone's actual body — permanently, regardless
-  of how their week is going — risks reading as a standing judgment about
-  their body rather than a reflection of their recent habits, which is a
-  real wellbeing concern for an app like this one. **Do not reintroduce
-  real body measurements (weight, BMI, height) as an input to the avatar's
-  size or shape without being explicitly asked, and flag the concern above
-  if asked.**
-- **Power tier, not a body-shape slider.** `physiqueState()` computes a
-  continuous `score` from the trailing ~7-day average calorie balance.
-  `mascotSVG` snaps this to one of 5 named power tiers at the same
-  thresholds as before (-2.2 / -0.8 / 0.8 / 2.2) — Sovereign / Ascendant /
-  Awakened / Novice / Dormant (`physiqueLabel`, also used as the flavor
-  copy) — and each tier changes: `band.bend` (a forward hunch, applied as
-  a `rotate()` on the upper-body group only, pivoted at the shoulder line,
-  so weak reads as posture rather than the whole sprite shrinking),
-  `band.cape` (flare size), `band.aura` (opacity of eye-glow and the
-  background aura ring), and `band.particles` (drifting ember count). The
-  **aura color** (`physiqueColor(score)`) is continuous (green → gold →
-  red) so it still feels reactive between tiers. This mood/aura layer
-  (eye glow, aura ring, particles) is universal across all classes — only
-  the mage's held item is literally the mood-colored orb; other classes
-  hold a class-appropriate weapon instead, sized to roughly the avatar's
-  own height (sword/bow/axe/lance/pitchfork), darkened to match, with the
-  weapon's own glow accents tied to the same aura color.
-- **Level-up gets a one-shot visual flourish**, not a new stored flag:
-  `lastSeenLevel` (module state, not persisted) is seeded from
-  `levelInfo().level` right after `loadState()`, then compared against the
-  current level on every `renderStatusPanel()` call — if it went up, that
-  single render adds a `level-up-flash` class to `.status-panel` (a CSS
-  `box-shadow` pulse, ~1.4s, see `@keyframes levelUpFlash`) and updates
-  `lastSeenLevel`. Since `render()` fully replaces the DOM every time, the
-  class only ever appears on the one render where the level actually
-  changed — don't try to "clear" it with a timer, there's nothing to
-  clear.
-- There's a glow filter (`eyeglow`) and a radial "spotlight" gradient
-  behind the character — the spotlight was added specifically to fix a
-  real contrast bug (the original body color nearly matched the panel
-  background), and the eye-glow filter is now load-bearing for the whole
-  design since the eyes are the focal point. Don't remove either without
-  checking contrast against `--surface` first. Same lesson applies to any
-  new class art: check it against the dark panel background before
-  calling it done (the demon's horns needed a bone-tinted fix, and the
-  dwarf's beard needed a highlight-toned fill, for exactly this reason —
-  dark-on-dark silhouettes are easy to accidentally render invisible).
+  It's driven only by `band.squat` (the short-term calorie-trend pose) and
+  a fixed per-class `bulkBase` (flavor only — e.g. dwarves run stouter,
+  rangers leaner — not tied to any real body data). A prior version added
+  a `bodyBulkFactor()` that computed real BMI from logged weight/height and
+  multiplied it into the avatar's size on top of the mood-based scaling.
+  It was removed deliberately: tying a gamified avatar's size to someone's
+  actual body — permanently, regardless of how their week is going — risks
+  reading as a standing judgment about their body rather than a reflection
+  of their recent habits, which is a real wellbeing concern for an app
+  like this one. **Do not reintroduce real body measurements (weight, BMI,
+  height) as an input to the avatar's size or shape without being
+  explicitly asked, and flag the concern above if asked.**
+- `physiqueState()` computes a continuous `score` from the user's trailing
+  ~7-day average calorie balance. `mascotSVG` snaps pose/expression to one
+  of 5 discrete bands (shredded / lean / balanced / surplus / overflowing)
+  at thresholds -2.2 / -0.8 / 0.8 / 2.2, but the **aura color**
+  (`physiqueColor(score)`) is continuous (green → gold → red) so it still
+  feels reactive between bands. This mood/aura layer (eyes, sparkles,
+  spotlight glow) is universal across all classes — only the mage's held
+  item is literally the mood-colored orb; other classes hold a
+  class-appropriate item instead (sword, bow, axe, flame, trident).
+- **Face is a shared anime-style rig, not per-class.** Tapered jaw path
+  (not a plain circle), angular almond eye shape with an eyelid-shadow arc,
+  3-highlight sparkle cluster, upper lash line with an outer flick, sharp
+  angled brows, tiny nose mark. Lives in the same head-scale group as
+  everything else, so all 6 classes get it uniformly. If a face redesign
+  is requested again, this is the baseline to iterate from — it was
+  explicitly flagged once as "severely lacking" before this pass, so don't
+  regress toward plain circles/ellipses.
+- **Signature idle moves, class by class:** so far only the Mage has one —
+  a slow 4-phase elemental cycle (ice → fire → earth → a teacup with
+  steam) layered onto the existing orb, pure CSS (`.mage-ice/-fire/-earth/
+  -tea`, each keyed to non-overlapping percentage windows of one shared
+  12s `animation-duration` — no JS timers, no per-element delays, they
+  share one clock so exactly one phase is ever visible). The other 5
+  classes (ranger drawing/releasing the bow, knight inspecting the blade,
+  demon's wings flaring, dwarf forging and equipping a new weapon, merrow
+  doing something aquatic) are intentionally not built yet — do them the
+  same way: CSS-only, one shared duration per class, non-overlapping
+  keyframe windows, respect `prefers-reduced-motion`.
+- **Rare/mythical weapon "pulls" are not built.** The idea (discussed with
+  the user): the dwarf's forge move — and potentially other classes —
+  occasionally reveals a rare/mythical/SS-tier weapon variant instead of
+  the default, gacha-style. This needs real design first: drop rates,
+  what "rare" actually looks like (bigger glow? unique silhouette? both?),
+  whether pulls are persistent (stored per-user, so a rare stays rare
+  once earned) or re-rolled every render, and how that interacts with the
+  existing class/scheme picker. Don't half-build this — get the design
+  worked out before writing code.
+- There's a glow filter and a radial "spotlight" gradient behind the
+  character — this was added specifically to fix a real contrast bug
+  (the original body color nearly matched the panel background). Don't
+  remove the spotlight/rim-glow without checking contrast against
+  `--surface` first. Same lesson applies to any new class art: check it
+  against the dark panel background before calling it done (the demon's
+  horns and wings needed a bone/skin-tinted fix for exactly this reason).
 
 ## Gamification layer
 
