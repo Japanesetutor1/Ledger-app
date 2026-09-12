@@ -303,8 +303,15 @@
     transition:box-shadow .4s ease, border-color .4s ease;
   }
   .status-top{ display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
-  .status-mascot{ flex:0 0 auto; width:130px; height:143px; }
-  .status-mascot svg{ width:100%; height:100%; display:block; }
+  .status-mascot-wrap{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .status-mascot{
+    width:130px; height:143px; padding:0; margin:0; border:none; background:none;
+    cursor:pointer; border-radius:var(--radius); transition:transform .15s ease;
+  }
+  .status-mascot:hover{ transform:scale(1.04); }
+  .status-mascot:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
+  .status-mascot svg{ width:100%; height:100%; display:block; pointer-events:none; }
+  .status-mascot-hint{ font-size:10px; color:var(--text-faint); }
   .mascot-figure{ transform-box:view-box; transform-origin:center; animation:mascotBob 3.6s ease-in-out infinite; }
   .mascot-eye{ transform-box:fill-box; transform-origin:center; animation:mascotBlink 5.2s ease-in-out infinite; }
   .mascot-sparkle{ transform-box:fill-box; transform-origin:center; animation:mascotTwinkle 1.8s ease-in-out infinite; }
@@ -316,6 +323,42 @@
   @media (prefers-reduced-motion: reduce){
     .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb{ animation:none; }
   }
+
+  /* ---------- Avatar picker (class + color scheme) ---------- */
+  .avatar-picker-backdrop{
+    position:fixed; inset:0; background:rgba(6,8,10,.72); z-index:50;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .avatar-picker{
+    background:linear-gradient(160deg,#12161c,#0d1014); border:1px solid var(--gold);
+    border-radius:var(--radius); padding:20px; max-width:460px; width:100%;
+    max-height:88vh; overflow-y:auto; box-shadow:0 12px 40px -8px rgba(0,0,0,.6);
+  }
+  .avatar-picker-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .avatar-picker-head h2{ font-size:14px; margin:0; color:var(--gold); }
+  .avatar-picker-close{ background:none; border:none; color:var(--text-dim); font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; }
+  .avatar-picker-close:hover{ color:var(--gold); }
+  .avatar-picker-preview{ width:140px; height:154px; margin:0 auto 14px; }
+  .avatar-picker-preview svg{ width:100%; height:100%; display:block; }
+  .avatar-class-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+  @media(max-width:420px){ .avatar-class-grid{ grid-template-columns:repeat(2,1fr); } }
+  .avatar-class-tile{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:8px 6px 6px; display:flex; flex-direction:column; align-items:center; gap:4px;
+    cursor:pointer; color:var(--text-dim); font-size:11px;
+  }
+  .avatar-class-tile.active{ border-color:var(--gold); color:var(--gold); background:var(--surface-3); }
+  .avatar-class-thumb{ width:52px; height:57px; display:block; }
+  .avatar-class-thumb svg{ width:100%; height:100%; display:block; pointer-events:none; }
+  .avatar-class-name{ font-weight:600; }
+  .avatar-scheme-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .avatar-scheme-label{ font-size:11.5px; color:var(--text-dim); }
+  .avatar-scheme-swatches{ display:flex; gap:8px; flex-wrap:wrap; }
+  .avatar-scheme-swatch{
+    width:26px; height:26px; border-radius:50%; border:2px solid var(--border); cursor:pointer; padding:0;
+  }
+  .avatar-scheme-swatch.active{ border-color:var(--gold); box-shadow:0 0 0 2px rgba(201,164,76,.35); }
+
   .status-main{ flex:1; min-width:220px; }
   .status-row1{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
   .status-titles{ display:flex; align-items:baseline; gap:10px; }
@@ -405,6 +448,7 @@
   var favorites = { food: [], exercise: [] };
   var currentDate = todayStr();
   var settingsOpen = false;
+  var avatarPickerOpen = false;
   var trendWindow = 7;
   var storageError = false;
 
@@ -810,7 +854,90 @@
     return { name:'Overflowing', flavor:'Redlining. Seams under real pressure.' };
   }
 
-  function mascotSVG(score){
+  // Avatar classes: each is a race/kit with 5 selectable color schemes.
+  // Body silhouette (bulk) reacts to the user's actual logged weight vs. height;
+  // pose/expression/aura still react to the short-term calorie trend (physiqueState).
+  var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','murloc'];
+  var AVATAR_CLASSES = {
+    mage: { label:'Mage', bulkBase:1.0, schemes:[
+      {name:'Arcane Blue',   skin:'#f4c9a0', body:'#3a4863', bodyDark:'#2b3548', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#dbe3ef'},
+      {name:'Ember Red',     skin:'#f4c9a0', body:'#6b3a3a', bodyDark:'#4a2626', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#f0d9c8'},
+      {name:'Verdant Green', skin:'#f4c9a0', body:'#33604a', bodyDark:'#234233', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#dcefe2'},
+      {name:'Royal Purple',  skin:'#f4c9a0', body:'#4d3a6b', bodyDark:'#362650', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#ece0f7'},
+      {name:'Midnight Gold', skin:'#f4c9a0', body:'#3a3628', bodyDark:'#26241a', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#ecdca0'}
+    ]},
+    ranger: { label:'Ranger', bulkBase:0.95, schemes:[
+      {name:'Forest Green',  skin:'#e8b98c', body:'#3f5c3a', bodyDark:'#2c4128', trim:'#4a3524', trimHi:'#5e4630', accent:'#d8c9a3'},
+      {name:'Autumn Brown',  skin:'#e8b98c', body:'#6b4a2c', bodyDark:'#4a3220', trim:'#3a2818', trimHi:'#4e3a24', accent:'#e8d5b0'},
+      {name:'Shadow Grey',   skin:'#e8b98c', body:'#4a4f52', bodyDark:'#33373a', trim:'#2c2f31', trimHi:'#404447', accent:'#c9d1d3'},
+      {name:'Desert Tan',    skin:'#e8b98c', body:'#8a6b3f', bodyDark:'#63492a', trim:'#4a3524', trimHi:'#5e4630', accent:'#f0e2bd'},
+      {name:'Twilight Blue', skin:'#e8b98c', body:'#33475c', bodyDark:'#232e3f', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#cfe0ec'}
+    ]},
+    knight: { label:'Knight', bulkBase:1.05, schemes:[
+      {name:'Steel Silver',    skin:'#f0c19a', body:'#7a828c', bodyDark:'#565c64', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#e6e9ec'},
+      {name:'Crimson Guard',   skin:'#f0c19a', body:'#7a3a3a', bodyDark:'#532727', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#f0d9d9'},
+      {name:'Royal Gold',      skin:'#f0c19a', body:'#8a742e', bodyDark:'#5e4f1f', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#f5ecc9'},
+      {name:'Emerald Order',   skin:'#f0c19a', body:'#33604a', bodyDark:'#234233', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#d9f0e4'},
+      {name:'Obsidian Knight', skin:'#f0c19a', body:'#2e3236', bodyDark:'#1c1f22', trim:'#4a5054', trimHi:'#666e73', accent:'#cfd6db'}
+    ]},
+    demon: { label:'Demon', bulkBase:1.0, schemes:[
+      {name:'Crimson',       skin:'#b23a3a', body:'#3a1414', bodyDark:'#241010', trim:'#2b1414', trimHi:'#4a2020', accent:'#ff9d4d'},
+      {name:'Violet',        skin:'#6b3a8a', body:'#241433', bodyDark:'#170d21', trim:'#241433', trimHi:'#3d2050', accent:'#c98dff'},
+      {name:'Toxic Green',   skin:'#3f8a4a', body:'#142914', bodyDark:'#0c1a0c', trim:'#142914', trimHi:'#1f4a24', accent:'#a8ff8d'},
+      {name:'Shadow Black',  skin:'#3a3a40', body:'#131315', bodyDark:'#0a0a0b', trim:'#131315', trimHi:'#232326', accent:'#8d9dff'},
+      {name:'Molten Orange', skin:'#b2611a', body:'#331c0a', bodyDark:'#211206', trim:'#331c0a', trimHi:'#4a2c10', accent:'#ffd48d'}
+    ]},
+    dwarf: { label:'Dwarf', bulkBase:1.15, schemes:[
+      {name:'Ginger Clan',   skin:'#e8b98c', body:'#6b4a2c', bodyDark:'#4a3220', trim:'#a85a2e', trimHi:'#c07040', accent:'#d8c9a3'},
+      {name:'Iron Grey',     skin:'#e0b088', body:'#4a4f52', bodyDark:'#33373a', trim:'#8a8f94', trimHi:'#a8adb2', accent:'#c9d1d3'},
+      {name:'Copper Beard',  skin:'#e8b98c', body:'#5a3a2c', bodyDark:'#3d2820', trim:'#b06b3a', trimHi:'#c8865a', accent:'#e0c9a8'},
+      {name:'Midnight Clan', skin:'#e0b088', body:'#3a4863', bodyDark:'#2b3548', trim:'#33363b', trimHi:'#4a4e54', accent:'#dbe3ef'},
+      {name:'Golden Braid',  skin:'#e8b98c', body:'#5e4f1f', bodyDark:'#423717', trim:'#c9a24a', trimHi:'#ddbb6e', accent:'#f5ecc9'}
+    ]},
+    murloc: { label:'Murloc', bulkBase:0.95, schemes:[
+      {name:'Reef Green',    skin:'#4a8a5a', body:'#2b3548', bodyDark:'#1c2330', trim:'#2e5c3a', trimHi:'#66b07a', accent:'#dbe3ef'},
+      {name:'Tidal Blue',    skin:'#3a6b8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#24475c', trimHi:'#5590b0', accent:'#dbe3ef'},
+      {name:'Coral Pink',    skin:'#b06b7a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c4552', trimHi:'#cf8d9a', accent:'#f0dbe0'},
+      {name:'Swamp Purple',  skin:'#6b4a8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#47305c', trimHi:'#8d6bb0', accent:'#e6dbef'},
+      {name:'Golden Murloc', skin:'#b09a3a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c6c24', trimHi:'#d0ba5e', accent:'#f5ecc9'}
+    ]}
+  };
+
+  function getAvatarChoice(){
+    var cls = (settings.avatarClass && AVATAR_CLASSES[settings.avatarClass]) ? settings.avatarClass : 'mage';
+    var idx = settings.avatarScheme;
+    if(typeof idx !== 'number' || idx < 0 || idx >= AVATAR_CLASSES[cls].schemes.length) idx = 0;
+    return { cls: cls, idx: idx };
+  }
+
+  // Most recent logged body weight on or before the current date, falling back
+  // to the profile baseline weight — used to size the avatar's silhouette.
+  function latestLoggedWeightKg(){
+    var dates = trackedDatesSorted().filter(function(d){ return d <= currentDate; });
+    for(var i = dates.length - 1; i >= 0; i--){
+      var day = logs[dates[i]];
+      if(day && day.weight != null) return day.weight;
+    }
+    return settings.weightKg || null;
+  }
+
+  // Continuous body-size multiplier from BMI (~0.85 lean .. 1.35 heavy), neutral
+  // (1.0) when there isn't enough data yet to compute one.
+  function bodyBulkFactor(){
+    var wKg = latestLoggedWeightKg();
+    var hCm = settings.heightCm;
+    if(!wKg || !hCm) return 1;
+    var bmi = wKg / Math.pow(hCm/100, 2);
+    var t = clamp((bmi - 18.5) / (32 - 18.5), 0, 1);
+    return lerp(0.85, 1.35, t);
+  }
+
+  function mascotSVG(score, bulk, classId, schemeIdx){
+    var cdef = AVATAR_CLASSES[classId] || AVATAR_CLASSES.mage;
+    if(!classId || !AVATAR_CLASSES[classId]) classId = 'mage';
+    var pal = cdef.schemes[schemeIdx] || cdef.schemes[0];
+    var uid = 'm' + classId + (schemeIdx||0) + '_' + Math.round(((score||0)+3)*100);
+
     var color = physiqueColor(score);
     var band;
     if(score <= -2.2) band = { squat:0.88, stanceW:0.88, sparkles:3, sweat:false, brow:0, smile:'smug', glowF:'glow' };
@@ -819,28 +946,56 @@
     else if(score < 2.2)   band = { squat:1.14, stanceW:1.15, sparkles:1, sweat:true,  brow:3, smile:'o',     glowF:'glow' };
     else                    band = { squat:1.3,  stanceW:1.35, sparkles:0, sweat:true,  brow:6, smile:'o',     glowF:'bigglow' };
 
-    var SKIN='#f4c9a0', HAIR='#2b2f3d', HAIR_HI='#3d4256', JACKET='#3a4863', JACKET_DARK='#2b3548', SHIRT='#dbe3ef', PANTS='#2b3548', BLUSH='#f2a8a0';
-    var bodyBot = 178 + (band.squat-1)*12;
-    var bw = (band.squat-1)*9;
-    var lx = (band.stanceW-1)*9;
+    // Body size: short-term calorie-trend pose (band.squat) combined with the
+    // user's actual weight-for-height (bulk) and a per-class base build.
+    var bulkEff = clamp((bulk||1) * (cdef.bulkBase||1), 0.75, 1.45);
+    var squatEff = clamp(band.squat * bulkEff, 0.7, 1.7);
+    var stanceEff = clamp(band.stanceW * (1 + (bulkEff-1)*0.7), 0.7, 1.7);
+
+    var SKIN=pal.skin, HAIR=pal.trim, HAIR_HI=pal.trimHi, JACKET=pal.body, JACKET_DARK=pal.bodyDark, SHIRT=pal.accent, PANTS=pal.bodyDark, BLUSH='#f2a8a0', SHOE='#20242c';
+    var bodyBot = 178 + (squatEff-1)*12;
+    var bw = (squatEff-1)*9;
+    var lx = (stanceEff-1)*9;
     var hx = 142, hy = 116;
 
     var bg = [];
-    bg.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot)"/>');
+    bg.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot'+uid+')"/>');
 
     var parts = [];
+
+    if(classId === 'demon'){
+      bg.push('<path d="M70,130 C40,120 20,140 15,170 C35,155 55,150 72,150 Z" fill="'+SKIN+'" opacity="0.3" stroke="'+SKIN+'" stroke-width="1" stroke-opacity="0.6"/>');
+      bg.push('<path d="M124,130 C154,120 174,140 179,170 C159,155 139,150 122,150 Z" fill="'+SKIN+'" opacity="0.3" stroke="'+SKIN+'" stroke-width="1" stroke-opacity="0.6"/>');
+    }
+
     parts.push('<path d="M70,120 C66,140 68,158 78,168 L84,150 C80,142 78,130 80,118 Z" fill="'+JACKET_DARK+'"/>');
     parts.push('<path d="M124,120 C128,140 126,158 116,168 L110,150 C114,142 116,130 114,118 Z" fill="'+JACKET_DARK+'"/>');
 
     parts.push('<path d="M'+(80-lx)+',178 C'+(77-lx)+',178 '+(75-lx)+',181 '+(76-lx)+',185 L'+(78-lx*1.2)+',206 C'+(79-lx*1.2)+',210 '+(84-lx*1.2)+',210 '+(85-lx*1.2)+',206 L'+(86-lx)+',184 C'+(86-lx)+',180 '+(83-lx)+',178 '+(80-lx)+',178 Z" fill="'+PANTS+'"/>');
     parts.push('<path d="M'+(112+lx)+',178 C'+(109+lx)+',178 '+(107+lx)+',181 '+(108+lx)+',185 L'+(110+lx*1.2)+',206 C'+(111+lx*1.2)+',210 '+(116+lx*1.2)+',210 '+(117+lx*1.2)+',206 L'+(118+lx)+',184 C'+(118+lx)+',180 '+(115+lx)+',178 '+(112+lx)+',178 Z" fill="'+PANTS+'"/>');
-    parts.push('<ellipse cx="'+(80-lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+HAIR+'"/>');
-    parts.push('<ellipse cx="'+(115+lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+HAIR+'"/>');
+    parts.push('<ellipse cx="'+(80-lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+SHOE+'"/>');
+    parts.push('<ellipse cx="'+(115+lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+SHOE+'"/>');
 
-    parts.push('<path d="M'+(76-bw)+',122 C'+(73-bw)+',136 '+(73-bw)+',152 '+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+' C'+(121+bw)+',152 '+(120+bw)+',136 '+(118+bw)+',122 C'+(115+bw)+',110 105,102 97,102 C89,102 '+(79-bw)+',110 '+(76-bw)+',122 Z" fill="url(#jacketGrad)"/>');
+    if(classId === 'demon'){
+      parts.push('<path d="M100,'+bodyBot+' C112,'+(bodyBot+10)+' 106,'+(bodyBot+22)+' 116,'+(bodyBot+28)+' C108,'+(bodyBot+24)+' 102,'+(bodyBot+16)+' 99,'+(bodyBot+6)+' Z" fill="'+SKIN+'"/>');
+    }
+
+    parts.push('<path d="M'+(76-bw)+',122 C'+(73-bw)+',136 '+(73-bw)+',152 '+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+' C'+(121+bw)+',152 '+(120+bw)+',136 '+(118+bw)+',122 C'+(115+bw)+',110 105,102 97,102 C89,102 '+(79-bw)+',110 '+(76-bw)+',122 Z" fill="url(#jacketGrad'+uid+')"/>');
     parts.push('<path d="M97,106 L94,'+(bodyBot-2)+'" stroke="'+color+'" stroke-width="2" fill="none" opacity="0.85"/>');
     parts.push('<path d="M88,104 L97,116 L106,104" fill="'+SHIRT+'"/>');
     parts.push('<path d="M'+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+'" stroke="'+color+'" stroke-width="1.6" opacity="0.6"/>');
+
+    if(classId === 'knight'){
+      parts.push('<circle cx="'+(79-bw)+'" cy="118" r="7" fill="'+HAIR+'"/>');
+      parts.push('<circle cx="'+(115+bw)+'" cy="118" r="7" fill="'+HAIR_HI+'"/>');
+    } else if(classId === 'ranger'){
+      parts.push('<path d="M80,104 L116,138" stroke="'+HAIR+'" stroke-width="3" opacity="0.85"/>');
+      parts.push('<rect x="110" y="96" width="9" height="24" rx="3" fill="'+HAIR+'"/>');
+      parts.push('<path d="M111,96 L114.5,87 L118,96 Z" fill="'+SHIRT+'"/>');
+    } else if(classId === 'dwarf'){
+      parts.push('<path d="M'+(77-bw)+','+(bodyBot-16)+' L'+(117+bw)+','+(bodyBot-16)+'" stroke="'+HAIR_HI+'" stroke-width="4"/>');
+      parts.push('<rect x="92" y="'+(bodyBot-19)+'" width="10" height="7" fill="'+SHIRT+'"/>');
+    }
 
     parts.push('<path d="M79,118 C71,122 67,132 70,142 L78,141 C77,132 79,125 84,120 Z" fill="'+JACKET+'"/>');
     parts.push('<circle cx="73" cy="143" r="5" fill="'+SKIN+'"/>');
@@ -848,29 +1003,59 @@
     parts.push('<path d="M104,110 C113,112 120,118 125,126 L'+(hx-4)+','+(hy+2)+' L'+(hx-10)+','+(hy+8)+' L116,130 C111,122 106,116 99,112 Z" fill="'+JACKET+'"/>');
     parts.push('<circle cx="'+(hx-2)+'" cy="'+(hy+4)+'" r="5.5" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad)"/>');
-    parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad)"/>');
+    // Behind-skull layer (temple hair / cheek guards), drawn before the skull disc.
+    if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
+      parts.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad'+uid+')"/>');
+      parts.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad'+uid+')"/>');
+    } else if(classId === 'knight'){
+      parts.push('<path d="M55,50 C50,62 52,76 60,86 L68,80 C62,72 61,60 64,50 Z" fill="'+HAIR+'"/>');
+      parts.push('<path d="M139,50 C144,62 142,76 134,86 L126,80 C132,72 133,60 130,50 Z" fill="'+HAIR+'"/>');
+    }
 
     parts.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
 
-    parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad)"/>');
-    parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
-    parts.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
-    parts.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
+    // Front head covering — this is the main class silhouette (hair / helmet / horns / fin).
+    if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
+      parts.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad'+uid+')"/>');
+      parts.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
+      parts.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
+      parts.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
+      parts.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+      parts.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
+      parts.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
+    } else if(classId === 'knight'){
+      parts.push('<path d="M55,58 C50,30 66,8 97,8 C128,8 144,30 139,58 C136,44 128,32 116,26 L116,34 C108,28 90,28 82,34 L82,26 C70,32 58,44 55,58 Z" fill="'+HAIR+'"/>');
+      parts.push('<path d="M97,10 L97,28" stroke="'+HAIR_HI+'" stroke-width="3" stroke-linecap="round"/>');
+      parts.push('<path d="M90,12 L97,2 L104,12 Z" fill="'+HAIR_HI+'"/>');
+    } else if(classId === 'demon'){
+      parts.push('<path d="M70,20 C80,10 114,10 124,20 C114,16 80,16 70,20 Z" fill="'+HAIR+'" opacity="0.85"/>');
+      parts.push('<path d="M74,30 C68,16 60,6 48,2 C60,6 68,16 72,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
+      parts.push('<path d="M120,30 C126,16 134,6 146,2 C134,6 126,16 122,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
+      parts.push('<circle cx="49" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
+      parts.push('<circle cx="145" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
+    } else if(classId === 'murloc'){
+      parts.push('<path d="M97,6 L104,20 L90,20 Z" fill="'+HAIR+'"/>');
+      parts.push('<path d="M97,20 L103,32 L91,32 Z" fill="'+HAIR+'" opacity="0.9"/>');
+      parts.push('<path d="M97,34 L102,44 L92,44 Z" fill="'+HAIR+'" opacity="0.8"/>');
+      parts.push('<path d="M97,6 L97,44" stroke="'+HAIR_HI+'" stroke-width="1.2" opacity="0.6"/>');
+      parts.push('<path d="M60,74 C64,78 64,84 60,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
+      parts.push('<path d="M134,74 C130,78 130,84 134,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
+    }
+
+    var browY = 51 + band.brow*0.3;
+    if(classId !== 'murloc'){
+      parts.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+      parts.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
+    }
 
     var ey = 66 + band.brow*0.4;
-    var browY = 51 + band.brow*0.3;
-    parts.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-    parts.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-
+    var eyeScale = classId === 'murloc' ? 1.15 : 1;
     [84, 110].forEach(function(ex, ei){
       var eye = [];
-      eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="8" ry="10" fill="#ffffff"/>');
-      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="6.4" ry="8" fill="url(#irisGrad)"/>');
-      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+4)+'" rx="3.2" ry="4.2" fill="#1a1d24"/>');
+      var rx = 8*eyeScale, ry = 10*eyeScale;
+      eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="'+rx+'" ry="'+ry+'" fill="#ffffff"/>');
+      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="'+(6.4*eyeScale)+'" ry="'+(8*eyeScale)+'" fill="url(#irisGrad'+uid+')"/>');
+      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+4)+'" rx="'+(3.2*eyeScale)+'" ry="'+(4.2*eyeScale)+'" fill="#1a1d24"/>');
       eye.push('<circle cx="'+(ex-2.4)+'" cy="'+(ey-2)+'" r="2.4" fill="#ffffff"/>');
       eye.push('<circle cx="'+(ex+2.6)+'" cy="'+(ey+4.2)+'" r="1.1" fill="#ffffff" opacity="0.9"/>');
       eye.push('<circle cx="'+(ex-3.6)+'" cy="'+(ey+1)+'" r="0.7" fill="#ffffff" opacity="0.7"/>');
@@ -880,6 +1065,11 @@
 
     parts.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
     parts.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
+
+    if(classId === 'dwarf'){
+      parts.push('<path d="M72,78 C70,96 78,112 97,116 C116,112 124,96 122,78 C118,92 108,100 97,100 C86,100 76,92 72,78 Z" fill="url(#hairGrad'+uid+')"/>');
+      parts.push('<path d="M90,100 L88,112" stroke="'+HAIR_HI+'" stroke-width="2" stroke-linecap="round"/>');
+    }
 
     if(band.smile === 'happy'){
       parts.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
@@ -899,34 +1089,54 @@
       parts.push('<path class="mascot-sparkle" style="animation-delay:'+(i*0.35)+'s" d="M'+sx+','+sy+' l'+(1.6*sc)+','+(4.3*sc)+' l'+(4.3*sc)+','+(1.6*sc)+' l'+(-4.3*sc)+','+(1.6*sc)+' l'+(-1.6*sc)+','+(4.3*sc)+' l'+(-1.6*sc)+','+(-4.3*sc)+' l'+(-4.3*sc)+','+(-1.6*sc)+' l'+(4.3*sc)+','+(-1.6*sc)+' Z" fill="'+color+'" opacity="0.75"/>');
     }
 
+    // Held item — the one silhouette element unique to each class.
     var orb = [];
-    orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+')"/>');
-    orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
-    orb.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
-    orb.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
+    if(classId === 'ranger'){
+      orb.push('<path d="M'+(hx-2)+','+(hy-16)+' Q'+(hx+14)+','+hy+' '+(hx-2)+','+(hy+16)+'" stroke="'+HAIR+'" stroke-width="3" fill="none" stroke-linecap="round"/>');
+      orb.push('<path d="M'+(hx-2)+','+(hy-16)+' L'+(hx-2)+','+(hy+16)+'" stroke="'+SHIRT+'" stroke-width="1.2"/>');
+    } else if(classId === 'knight'){
+      orb.push('<path d="M'+hx+','+(hy-18)+' L'+(hx+3)+','+(hy-18)+' L'+(hx+2)+','+(hy+8)+' L'+(hx-2)+','+(hy+8)+' Z" fill="'+SHIRT+'"/>');
+      orb.push('<rect x="'+(hx-6)+'" y="'+(hy+7)+'" width="12" height="3" fill="'+HAIR+'"/>');
+      orb.push('<rect x="'+(hx-1.5)+'" y="'+(hy+10)+'" width="3" height="8" fill="'+HAIR_HI+'"/>');
+    } else if(classId === 'demon'){
+      orb.push('<path d="M'+hx+','+(hy-14)+' C'+(hx+8)+','+(hy-4)+' '+(hx+6)+','+(hy+8)+' '+hx+','+(hy+10)+' C'+(hx-6)+','+(hy+8)+' '+(hx-8)+','+(hy-4)+' '+hx+','+(hy-14)+' Z" fill="'+SHIRT+'" filter="url(#'+band.glowF+uid+')"/>');
+      orb.push('<path d="M'+hx+','+(hy-6)+' C'+(hx+3)+','+hy+' '+(hx+2)+','+(hy+6)+' '+hx+','+(hy+7)+' C'+(hx-2)+','+(hy+6)+' '+(hx-3)+','+hy+' '+hx+','+(hy-6)+' Z" fill="#ffe9c4" opacity="0.9"/>');
+    } else if(classId === 'dwarf'){
+      orb.push('<rect x="'+(hx-1.5)+'" y="'+(hy-16)+'" width="3" height="30" fill="'+HAIR+'"/>');
+      orb.push('<path d="M'+hx+','+(hy-16)+' L'+(hx+12)+','+(hy-10)+' L'+(hx+12)+','+(hy-2)+' L'+hx+','+(hy+2)+' Z" fill="'+SHIRT+'"/>');
+    } else if(classId === 'murloc'){
+      orb.push('<path d="M'+hx+','+(hy-14)+' L'+(hx+3)+','+(hy-14)+' L'+(hx+1.5)+','+(hy+2)+' L'+(hx-1.5)+','+(hy+2)+' Z" fill="'+SHIRT+'"/>');
+      orb.push('<rect x="'+(hx-5)+'" y="'+(hy+1)+'" width="10" height="2.5" fill="'+HAIR+'"/>');
+      orb.push('<rect x="'+(hx-1.2)+'" y="'+(hy+3)+'" width="2.4" height="6" fill="'+HAIR_HI+'"/>');
+    } else {
+      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+uid+')"/>');
+      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
+      orb.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
+      orb.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
+    }
     parts.push('<g class="mascot-orb">' + orb.join('') + '</g>');
 
     return (
       '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
         '<defs>' +
-          '<filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-          '<filter id="bigglow" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-          '<radialGradient id="spot" cx="50%" cy="55%" r="55%">' +
+          '<filter id="glow'+uid+'" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+          '<filter id="bigglow'+uid+'" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+          '<radialGradient id="spot'+uid+'" cx="50%" cy="55%" r="55%">' +
             '<stop offset="0%" stop-color="'+color+'" stop-opacity="0.25"/>' +
             '<stop offset="45%" stop-color="'+color+'" stop-opacity="0.08"/>' +
             '<stop offset="100%" stop-color="'+color+'" stop-opacity="0"/>' +
           '</radialGradient>' +
-          '<linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">' +
+          '<linearGradient id="hairGrad'+uid+'" x1="0%" y1="0%" x2="100%" y2="100%">' +
             '<stop offset="0%" stop-color="'+HAIR_HI+'"/>' +
             '<stop offset="60%" stop-color="'+HAIR+'"/>' +
             '<stop offset="100%" stop-color="'+HAIR+'"/>' +
           '</linearGradient>' +
-          '<linearGradient id="jacketGrad" x1="20%" y1="0%" x2="80%" y2="100%">' +
+          '<linearGradient id="jacketGrad'+uid+'" x1="20%" y1="0%" x2="80%" y2="100%">' +
             '<stop offset="0%" stop-color="'+JACKET+'"/>' +
             '<stop offset="70%" stop-color="'+JACKET+'"/>' +
             '<stop offset="100%" stop-color="'+JACKET_DARK+'"/>' +
           '</linearGradient>' +
-          '<radialGradient id="irisGrad" cx="35%" cy="30%" r="75%">' +
+          '<radialGradient id="irisGrad'+uid+'" cx="35%" cy="30%" r="75%">' +
             '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>' +
             '<stop offset="30%" stop-color="'+color+'"/>' +
             '<stop offset="100%" stop-color="'+color+'"/>' +
@@ -1044,6 +1254,7 @@
     html += renderHydration();
     html += renderPanels();
     html += renderTrend();
+    html += renderAvatarPicker();
 
     app.innerHTML = html;
     bindDynamicHandlers();
@@ -1069,6 +1280,8 @@
     var streak = currentStreak();
     var bars = statBars();
     var todaysQuests = questsForDay(todayStr());
+    var avatar = getAvatarChoice();
+    var bulk = bodyBulkFactor() * (AVATAR_CLASSES[avatar.cls].bulkBase || 1);
 
     var barsHtml = bars.map(function(b){
       return '<div class="stat-bar-row"><span class="stat-bar-label">'+b.label+'</span>' +
@@ -1086,7 +1299,10 @@
     return (
       '<div class="status-panel" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
-          '<div class="status-mascot">' + mascotSVG(phys.score) + '</div>' +
+          '<div class="status-mascot-wrap">' +
+            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, bulk, avatar.cls, avatar.idx) + '</button>' +
+            '<span class="status-mascot-hint">Customize</span>' +
+          '</div>' +
           '<div class="status-main">' +
             '<div class="status-row1">' +
               '<div class="status-titles"><span class="status-level num">Lv.'+lvl.level+'</span><span class="status-title-word">'+lvl.title+'</span></div>' +
@@ -1101,6 +1317,39 @@
         '<div class="quests">' +
           '<div class="quests-head"><h2>Today\'s quests</h2><span class="streak num">'+streak+'-day streak</span></div>' +
           '<ul class="quest-list">'+questsHtml+'</ul>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderAvatarPicker(){
+    if(!avatarPickerOpen) return '';
+    var choice = getAvatarChoice();
+    var phys = physiqueState();
+    var cdef = AVATAR_CLASSES[choice.cls];
+    var previewBulk = bodyBulkFactor() * (cdef.bulkBase || 1);
+
+    var classTiles = AVATAR_CLASS_ORDER.map(function(cid){
+      var c = AVATAR_CLASSES[cid];
+      var thumbBulk = 1 * (c.bulkBase || 1);
+      var svg = mascotSVG(0, thumbBulk, cid, choice.idx);
+      return '<button type="button" class="avatar-class-tile'+(cid===choice.cls?' active':'')+'" onclick="App.setAvatarClass(\''+cid+'\')">' +
+        '<span class="avatar-class-thumb">'+svg+'</span>' +
+        '<span class="avatar-class-name">'+esc(c.label)+'</span>' +
+      '</button>';
+    }).join('');
+
+    var schemeSwatches = cdef.schemes.map(function(sch, i){
+      return '<button type="button" class="avatar-scheme-swatch'+(i===choice.idx?' active':'')+'" title="'+esc(sch.name)+'" style="background:linear-gradient(135deg,'+sch.body+','+sch.trim+')" onclick="App.setAvatarScheme('+i+')"></button>';
+    }).join('');
+
+    return (
+      '<div class="avatar-picker-backdrop" onclick="App.closeAvatarPicker()">' +
+        '<div class="avatar-picker" onclick="event.stopPropagation()">' +
+          '<div class="avatar-picker-head"><h2>Choose your avatar</h2><button type="button" class="avatar-picker-close" onclick="App.closeAvatarPicker()">&times;</button></div>' +
+          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, previewBulk, choice.cls, choice.idx)+'</div>' +
+          '<div class="avatar-class-grid">'+classTiles+'</div>' +
+          '<div class="avatar-scheme-row"><span class="avatar-scheme-label">'+esc(cdef.schemes[choice.idx].name)+'</span><div class="avatar-scheme-swatches">'+schemeSwatches+'</div></div>' +
         '</div>' +
       '</div>'
     );
@@ -1532,6 +1781,27 @@
     render();
   };
 
+  App.toggleAvatarPicker = function(){
+    avatarPickerOpen = !avatarPickerOpen;
+    render();
+  };
+  App.closeAvatarPicker = function(){
+    avatarPickerOpen = false;
+    render();
+  };
+  App.setAvatarClass = async function(cls){
+    if(!AVATAR_CLASSES[cls]) return;
+    settings.avatarClass = cls;
+    if(typeof settings.avatarScheme !== 'number') settings.avatarScheme = 0;
+    await saveSettings();
+    render();
+  };
+  App.setAvatarScheme = async function(idx){
+    settings.avatarScheme = idx;
+    await saveSettings();
+    render();
+  };
+
   App.saveSettingsFromForm = async function(){
     var units = settings.units || 'imperial';
     var age = parseFloat(document.getElementById('f_age').value);
@@ -1568,7 +1838,9 @@
       goalWeightKg: goalWeightKg,
       goal: goal,
       baselineMode: settings.baselineMode || 'bmr',
-      activityMultiplier: activityMultiplier
+      activityMultiplier: activityMultiplier,
+      avatarClass: settings.avatarClass,
+      avatarScheme: settings.avatarScheme
     };
     await saveSettings();
     settingsOpen = false;

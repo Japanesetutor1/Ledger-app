@@ -33,11 +33,18 @@ in one environment.
 
 Two top-level storage keys:
 - `settings` — user profile (sex, age, height, weight, units, goal,
-  baseline mode, activity multiplier).
+  baseline mode, activity multiplier, `avatarClass`, `avatarScheme`).
 - `logs` — an object keyed by `YYYY-MM-DD` date string, each day holding
   `{ food: [...], exercise: [...], weight: number|null, water: number }`.
 - `favorites` — `{ food: [...], exercise: [...] }`, the user's personal
   saved shortcuts (separate from the built-in `FOOD_DB` reference list).
+
+`App.saveSettingsFromForm` rebuilds the whole `settings` object from the
+baseline form fields (it doesn't merge) — any new persisted setting added
+outside that form (like `avatarClass`/`avatarScheme`) **must be explicitly
+carried over** in that rebuild or it gets silently wiped the next time the
+user saves their baseline. This already bit the avatar picker once; check
+it again if you add another standalone setting.
 
 ## Design system
 
@@ -53,24 +60,52 @@ Two top-level storage keys:
 
 ## The mascot ("Status" panel)
 
-- Procedurally generated inline SVG (function `mascotSVG(score)`), **not**
-  an image file — this is intentional so it can react live to data.
-- It's a chibi anime-style character: big head, big eyes, spiky hair, a
-  hoodie jacket, holding a small glowing magic spark. This design went
-  through several iterations (a hooded silhouette figure, then a
-  Solo-Leveling-inspired energy-blade figure) before landing here — don't
+- Procedurally generated inline SVG (function
+  `mascotSVG(score, bulk, classId, schemeIdx)`), **not** an image file —
+  this is intentional so it can react live to data.
+- The base rig is a chibi anime-style character: big head, big eyes, an
+  animated blink/idle-bob, holding a small item in its raised hand. This
+  design went through several iterations (a hooded silhouette figure, then
+  a Solo-Leveling-inspired energy-blade figure) before landing here — don't
   regress to those without being asked.
+- **Avatar classes** (`AVATAR_CLASSES` / `AVATAR_CLASS_ORDER`): the user
+  picks one of 6 classes — Mage (default, spiky hair + hoodie + glowing
+  orb), Ranger (hair + bow + quiver), Knight (helmet + pauldrons + sword),
+  Demon (horns + wings + tail + flame), Dwarf (beard + belt + axe, stouter
+  base build), Murloc (fin crest + big eyes + no brows + dagger). Each
+  class has **5 selectable color schemes** (`cdef.schemes`, palette fields:
+  `skin`/`body`/`bodyDark`/`trim`/`trimHi`/`accent`). Choice is stored in
+  `settings.avatarClass` / `settings.avatarScheme` and picked via a
+  click-to-open modal (`App.toggleAvatarPicker`) triggered by clicking the
+  mascot itself. Every SVG `id` inside `mascotSVG` (gradients/filters) is
+  suffixed with a per-call `uid` — this is required, not decorative: the
+  picker renders several `mascotSVG()` outputs in the same DOM at once
+  (class tiles + big preview), and unsuffixed ids collide across them.
+- **Body size reflects real data, not just class flavor.** The user's most
+  recent logged weight (falling back to their profile baseline weight) vs.
+  their height produces a continuous `bulk` factor via `bodyBulkFactor()`
+  (BMI-based, ~0.85 lean .. 1.35 heavy). Each class also has a small fixed
+  `bulkBase` multiplier (dwarves run stouter, rangers/murlocs leaner) on
+  top of that. This is separate from and multiplies with the existing
+  trend-based pose scaling below — don't collapse the two, they answer
+  different questions ("what do they actually look like" vs. "how's the
+  last week gone").
 - `physiqueState()` computes a continuous `score` from the user's trailing
-  ~7-day average calorie balance. `mascotSVG(score)` snaps to one of 5
-  discrete pose/expression bands (shredded / lean / balanced / surplus /
-  overflowing) at thresholds -2.2 / -0.8 / 0.8 / 2.2, but the **aura color**
+  ~7-day average calorie balance. `mascotSVG` snaps pose/expression to one
+  of 5 discrete bands (shredded / lean / balanced / surplus / overflowing)
+  at thresholds -2.2 / -0.8 / 0.8 / 2.2, but the **aura color**
   (`physiqueColor(score)`) is continuous (green → gold → red) so it still
-  feels reactive between bands.
+  feels reactive between bands. This mood/aura layer (eyes, sparkles,
+  spotlight glow) is universal across all classes — only the mage's held
+  item is literally the mood-colored orb; other classes hold a
+  class-appropriate item instead (sword, bow, axe, flame, dagger).
 - There's a glow filter and a radial "spotlight" gradient behind the
   character — this was added specifically to fix a real contrast bug
   (the original body color nearly matched the panel background). Don't
   remove the spotlight/rim-glow without checking contrast against
-  `--surface` first.
+  `--surface` first. Same lesson applies to any new class art: check it
+  against the dark panel background before calling it done (the demon's
+  horns and wings needed a bone/skin-tinted fix for exactly this reason).
 
 ## Gamification layer
 
