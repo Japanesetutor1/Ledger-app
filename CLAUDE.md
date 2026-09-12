@@ -61,7 +61,7 @@ it again if you add another standalone setting.
 ## The mascot ("Status" panel)
 
 - Procedurally generated inline SVG (function
-  `mascotSVG(score, bulk, classId, schemeIdx)`), **not** an image file —
+  `mascotSVG(score, classId, schemeIdx)`), **not** an image file —
   this is intentional so it can react live to data.
 - The base rig is a chibi anime-style character: big head, big eyes, an
   animated blink/idle-bob, holding a small item in its raised hand. This
@@ -72,7 +72,7 @@ it again if you add another standalone setting.
   picks one of 6 classes — Mage (default, spiky hair + hoodie + glowing
   orb), Ranger (hair + bow + quiver), Knight (helmet + pauldrons + sword),
   Demon (horns + wings + tail + flame), Dwarf (beard + belt + axe, stouter
-  base build), Murloc (fin crest + big eyes + no brows + dagger). Each
+  base build), Merrow (fin crest + big eyes + no brows + trident). Each
   class has **5 selectable color schemes** (`cdef.schemes`, palette fields:
   `skin`/`body`/`bodyDark`/`trim`/`trimHi`/`accent`). Choice is stored in
   `settings.avatarClass` / `settings.avatarScheme` and picked via a
@@ -81,15 +81,27 @@ it again if you add another standalone setting.
   suffixed with a per-call `uid` — this is required, not decorative: the
   picker renders several `mascotSVG()` outputs in the same DOM at once
   (class tiles + big preview), and unsuffixed ids collide across them.
-- **Body size reflects real data, not just class flavor.** The user's most
-  recent logged weight (falling back to their profile baseline weight) vs.
-  their height produces a continuous `bulk` factor via `bodyBulkFactor()`
-  (BMI-based, ~0.85 lean .. 1.35 heavy). Each class also has a small fixed
-  `bulkBase` multiplier (dwarves run stouter, rangers/murlocs leaner) on
-  top of that. This is separate from and multiplies with the existing
-  trend-based pose scaling below — don't collapse the two, they answer
-  different questions ("what do they actually look like" vs. "how's the
-  last week gone").
+- **IP note on original character designs:** original fantasy archetypes
+  (a generic mage, knight, fish-humanoid, etc.) are fine. A *named,
+  specifically-identifiable* copyrighted/trademarked character is not —
+  even a stylized/abstracted redraw. The fish-humanoid class is called
+  "Merrow" (a generic folklore term) for exactly this reason: an earlier
+  version named it after, and gave it the exact silhouette cues of, a
+  specific trademarked game creature. If asked to add more classes, keep
+  them archetypal, not lifted from a specific named property.
+- **Body size deliberately does NOT reflect the user's actual weight/BMI.**
+  It's driven only by `band.squat` (the short-term calorie-trend pose) and
+  a fixed per-class `bulkBase` (flavor only — e.g. dwarves run stouter,
+  rangers leaner — not tied to any real body data). A prior version added
+  a `bodyBulkFactor()` that computed real BMI from logged weight/height and
+  multiplied it into the avatar's size on top of the mood-based scaling.
+  It was removed deliberately: tying a gamified avatar's size to someone's
+  actual body — permanently, regardless of how their week is going — risks
+  reading as a standing judgment about their body rather than a reflection
+  of their recent habits, which is a real wellbeing concern for an app
+  like this one. **Do not reintroduce real body measurements (weight, BMI,
+  height) as an input to the avatar's size or shape without being
+  explicitly asked, and flag the concern above if asked.**
 - `physiqueState()` computes a continuous `score` from the user's trailing
   ~7-day average calorie balance. `mascotSVG` snaps pose/expression to one
   of 5 discrete bands (shredded / lean / balanced / surplus / overflowing)
@@ -98,7 +110,7 @@ it again if you add another standalone setting.
   feels reactive between bands. This mood/aura layer (eyes, sparkles,
   spotlight glow) is universal across all classes — only the mage's held
   item is literally the mood-colored orb; other classes hold a
-  class-appropriate item instead (sword, bow, axe, flame, dagger).
+  class-appropriate item instead (sword, bow, axe, flame, trident).
 - There's a glow filter and a radial "spotlight" gradient behind the
   character — this was added specifically to fix a real contrast bug
   (the original body color nearly matched the panel background). Don't

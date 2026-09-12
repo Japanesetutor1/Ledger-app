@@ -963,7 +963,7 @@
   // Avatar classes: each is a race/kit with 5 selectable color schemes.
   // Body silhouette (bulk) reacts to the user's actual logged weight vs. height;
   // pose/expression/aura still react to the short-term calorie trend (physiqueState).
-  var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','murloc'];
+  var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','merrow'];
   var AVATAR_CLASSES = {
     mage: { label:'Mage', bulkBase:1.0, schemes:[
       {name:'Arcane Blue',   skin:'#f4c9a0', body:'#3a4863', bodyDark:'#2b3548', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#dbe3ef'},
@@ -1000,12 +1000,12 @@
       {name:'Midnight Clan', skin:'#e0b088', body:'#3a4863', bodyDark:'#2b3548', trim:'#33363b', trimHi:'#4a4e54', accent:'#dbe3ef'},
       {name:'Golden Braid',  skin:'#e8b98c', body:'#5e4f1f', bodyDark:'#423717', trim:'#c9a24a', trimHi:'#ddbb6e', accent:'#f5ecc9'}
     ]},
-    murloc: { label:'Murloc', bulkBase:0.95, schemes:[
+    merrow: { label:'Merrow', bulkBase:0.95, schemes:[
       {name:'Reef Green',    skin:'#4a8a5a', body:'#2b3548', bodyDark:'#1c2330', trim:'#2e5c3a', trimHi:'#66b07a', accent:'#dbe3ef'},
       {name:'Tidal Blue',    skin:'#3a6b8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#24475c', trimHi:'#5590b0', accent:'#dbe3ef'},
       {name:'Coral Pink',    skin:'#b06b7a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c4552', trimHi:'#cf8d9a', accent:'#f0dbe0'},
       {name:'Swamp Purple',  skin:'#6b4a8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#47305c', trimHi:'#8d6bb0', accent:'#e6dbef'},
-      {name:'Golden Murloc', skin:'#b09a3a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c6c24', trimHi:'#d0ba5e', accent:'#f5ecc9'}
+      {name:'Golden Merrow', skin:'#b09a3a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c6c24', trimHi:'#d0ba5e', accent:'#f5ecc9'}
     ]}
   };
 
@@ -1016,29 +1016,7 @@
     return { cls: cls, idx: idx };
   }
 
-  // Most recent logged body weight on or before the current date, falling back
-  // to the profile baseline weight — used to size the avatar's silhouette.
-  function latestLoggedWeightKg(){
-    var dates = trackedDatesSorted().filter(function(d){ return d <= currentDate; });
-    for(var i = dates.length - 1; i >= 0; i--){
-      var day = logs[dates[i]];
-      if(day && day.weight != null) return day.weight;
-    }
-    return settings.weightKg || null;
-  }
-
-  // Continuous body-size multiplier from BMI (~0.85 lean .. 1.35 heavy), neutral
-  // (1.0) when there isn't enough data yet to compute one.
-  function bodyBulkFactor(){
-    var wKg = latestLoggedWeightKg();
-    var hCm = settings.heightCm;
-    if(!wKg || !hCm) return 1;
-    var bmi = wKg / Math.pow(hCm/100, 2);
-    var t = clamp((bmi - 18.5) / (32 - 18.5), 0, 1);
-    return lerp(0.85, 1.35, t);
-  }
-
-  function mascotSVG(score, bulk, classId, schemeIdx){
+  function mascotSVG(score, classId, schemeIdx){
     var cdef = AVATAR_CLASSES[classId] || AVATAR_CLASSES.mage;
     if(!classId || !AVATAR_CLASSES[classId]) classId = 'mage';
     var pal = cdef.schemes[schemeIdx] || cdef.schemes[0];
@@ -1052,9 +1030,14 @@
     else if(score < 2.2)   band = { squat:1.14, stanceW:1.15, sparkles:1, sweat:true,  brow:3, smile:'o',     glowF:'glow' };
     else                    band = { squat:1.3,  stanceW:1.35, sparkles:0, sweat:true,  brow:6, smile:'o',     glowF:'bigglow' };
 
-    // Body size: short-term calorie-trend pose (band.squat) combined with the
-    // user's actual weight-for-height (bulk) and a per-class base build.
-    var bulkEff = clamp((bulk||1) * (cdef.bulkBase||1), 0.75, 1.45);
+    // Body size reflects the short-term calorie-trend pose (band.squat) and
+    // a fixed per-class build (e.g. dwarves run stouter) — deliberately NOT
+    // the user's actual body/weight. An earlier version multiplied in a
+    // real-BMI-derived factor; removed because tying a gamified avatar's
+    // size to someone's actual body, on top of their mood-based state, risks
+    // reading as a standing judgment about their body rather than their
+    // recent habits. Keep it this way — see CLAUDE.md.
+    var bulkEff = clamp(cdef.bulkBase||1, 0.75, 1.45);
     var squatEff = clamp(band.squat * bulkEff, 0.7, 1.7);
     var stanceEff = clamp(band.stanceW * (1 + (bulkEff-1)*0.7), 0.7, 1.7);
 
@@ -1143,23 +1126,21 @@
       head.push('<path d="M120,30 C126,16 134,6 146,2 C134,6 126,16 122,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
       head.push('<circle cx="49" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
       head.push('<circle cx="145" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
-    } else if(classId === 'murloc'){
-      head.push('<path d="M97,6 L104,20 L90,20 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M97,20 L103,32 L91,32 Z" fill="'+HAIR+'" opacity="0.9"/>');
-      head.push('<path d="M97,34 L102,44 L92,44 Z" fill="'+HAIR+'" opacity="0.8"/>');
-      head.push('<path d="M97,6 L97,44" stroke="'+HAIR_HI+'" stroke-width="1.2" opacity="0.6"/>');
+    } else if(classId === 'merrow'){
+      head.push('<path d="M97,6 C106,10 110,26 104,42 C101,30 99,16 97,6 Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M97,6 C88,10 84,26 90,42 C93,30 95,16 97,6 Z" fill="'+HAIR+'" opacity="0.75"/>');
       head.push('<path d="M60,74 C64,78 64,84 60,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
       head.push('<path d="M134,74 C130,78 130,84 134,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
     }
 
     var browY = 51 + band.brow*0.3;
-    if(classId !== 'murloc'){
+    if(classId !== 'merrow'){
       head.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
       head.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
     }
 
     var ey = 66 + band.brow*0.4;
-    var eyeScale = classId === 'murloc' ? 1.15 : 1;
+    var eyeScale = classId === 'merrow' ? 1.15 : 1;
     [84, 110].forEach(function(ex){
       var eye = [];
       var rx = 8*eyeScale, ry = 10*eyeScale;
@@ -1239,7 +1220,7 @@
       orb.push('<rect x="'+(hx-2.5)+'" y="'+axeShaftTop+'" width="5" height="'+(axeShaftBot-axeShaftTop)+'" fill="'+HAIR+'"/>');
       orb.push('<path d="M'+hx+','+axeShaftTop+' C'+(hx+34)+','+(axeShaftTop-8)+' '+(hx+38)+','+(axeShaftTop+38)+' '+hx+','+(axeShaftTop+46)+' C'+(hx+16)+','+(axeShaftTop+36)+' '+(hx+16)+','+(axeShaftTop+8)+' '+hx+','+axeShaftTop+' Z" fill="'+SHIRT+'" stroke="'+HAIR_HI+'" stroke-width="1"/>');
       orb.push('<path d="M'+hx+','+(axeShaftTop+10)+' L'+(hx-15)+','+(axeShaftTop+18)+' L'+hx+','+(axeShaftTop+26)+' Z" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'murloc'){
+    } else if(classId === 'merrow'){
       var forkShaftTop = 34, forkShaftBot = 204;
       orb.push('<rect x="'+(hx-2.5)+'" y="'+forkShaftTop+'" width="5" height="'+(forkShaftBot-forkShaftTop)+'" fill="'+HAIR+'"/>');
       orb.push('<rect x="'+(hx-10)+'" y="'+(forkShaftTop-3)+'" width="20" height="4" rx="1" fill="'+HAIR_HI+'"/>');
@@ -1426,7 +1407,6 @@
     var bars = statBars();
     var todaysQuests = questsForDay(todayStr());
     var avatar = getAvatarChoice();
-    var bulk = bodyBulkFactor() * (AVATAR_CLASSES[avatar.cls].bulkBase || 1);
 
     var barsHtml = bars.map(function(b){
       return '<div class="stat-bar-row"><span class="stat-bar-label">'+b.label+'</span>' +
@@ -1445,7 +1425,7 @@
       '<div class="status-panel" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
-            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, bulk, avatar.cls, avatar.idx) + '</button>' +
+            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, avatar.cls, avatar.idx) + '</button>' +
             '<span class="status-mascot-hint">Customize</span>' +
           '</div>' +
           '<div class="status-main">' +
@@ -1472,12 +1452,10 @@
     var choice = getAvatarChoice();
     var phys = physiqueState();
     var cdef = AVATAR_CLASSES[choice.cls];
-    var previewBulk = bodyBulkFactor() * (cdef.bulkBase || 1);
 
     var classTiles = AVATAR_CLASS_ORDER.map(function(cid){
       var c = AVATAR_CLASSES[cid];
-      var thumbBulk = 1 * (c.bulkBase || 1);
-      var svg = mascotSVG(0, thumbBulk, cid, choice.idx);
+      var svg = mascotSVG(0, cid, choice.idx);
       return '<button type="button" class="avatar-class-tile'+(cid===choice.cls?' active':'')+'" onclick="App.setAvatarClass(\''+cid+'\')">' +
         '<span class="avatar-class-thumb">'+svg+'</span>' +
         '<span class="avatar-class-name">'+esc(c.label)+'</span>' +
@@ -1492,7 +1470,7 @@
       '<div class="avatar-picker-backdrop" onclick="App.closeAvatarPicker()">' +
         '<div class="avatar-picker" onclick="event.stopPropagation()">' +
           '<div class="avatar-picker-head"><h2>Choose your avatar</h2><button type="button" class="avatar-picker-close" onclick="App.closeAvatarPicker()">&times;</button></div>' +
-          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, previewBulk, choice.cls, choice.idx)+'</div>' +
+          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, choice.cls, choice.idx)+'</div>' +
           '<div class="avatar-class-grid">'+classTiles+'</div>' +
           '<div class="avatar-scheme-row"><span class="avatar-scheme-label">'+esc(cdef.schemes[choice.idx].name)+'</span><div class="avatar-scheme-swatches">'+schemeSwatches+'</div></div>' +
         '</div>' +
