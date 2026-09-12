@@ -327,16 +327,30 @@
   .status-mascot:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   .status-mascot svg{ width:100%; height:100%; display:block; pointer-events:none; }
   .status-mascot-hint{ font-size:10px; color:var(--text-faint); }
-  .mascot-figure{ transform-box:view-box; transform-origin:center; animation:mascotBob 3.6s ease-in-out infinite; }
-  .mascot-eye{ transform-box:fill-box; transform-origin:center; animation:mascotBlink 5.2s ease-in-out infinite; }
-  .mascot-sparkle{ transform-box:fill-box; transform-origin:center; animation:mascotTwinkle 1.8s ease-in-out infinite; }
-  .mascot-orb{ transform-box:fill-box; transform-origin:center; animation:mascotOrbPulse 2.2s ease-in-out infinite; }
-  @keyframes mascotBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
+  .mascot-figure{ transform-box:view-box; transform-origin:center; animation:mascotBob 4.4s ease-in-out infinite; }
+  .mascot-eye{ transform-box:fill-box; transform-origin:center; animation:mascotBlink 6s ease-in-out infinite; }
+  .mascot-sparkle{ transform-box:fill-box; transform-origin:center; animation:mascotTwinkle 2.4s ease-in-out infinite; }
+  .mascot-orb{ transform-box:fill-box; transform-origin:center; animation:mascotOrbPulse 2.6s ease-in-out infinite; }
+  .mascot-aura{ transform-box:fill-box; transform-origin:center; animation:mascotAuraSpin 24s linear infinite; }
+  @keyframes mascotBob{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-2px); } }
   @keyframes mascotBlink{ 0%,90%,100%{ transform:scaleY(1); } 93%{ transform:scaleY(0.1); } 96%{ transform:scaleY(1); } }
-  @keyframes mascotTwinkle{ 0%,100%{ opacity:0.35; transform:scale(0.75); } 50%{ opacity:1; transform:scale(1.15); } }
+  @keyframes mascotTwinkle{ 0%,100%{ opacity:0.3; transform:scale(0.7); } 50%{ opacity:0.9; transform:scale(1.1); } }
   @keyframes mascotOrbPulse{ 0%,100%{ opacity:0.85; transform:scale(1); } 50%{ opacity:1; transform:scale(1.2); } }
+  @keyframes mascotAuraSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
   @media (prefers-reduced-motion: reduce){
-    .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb{ animation:none; }
+    .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb, .mascot-aura{ animation:none; }
+  }
+
+  /* Level-up: a bright pulse on the whole status panel, plays once per DOM
+     insertion (added only on the render where the level actually went up). */
+  .status-panel.level-up-flash{ animation:levelUpFlash 1.4s ease-out; }
+  @keyframes levelUpFlash{
+    0%{ box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 0 22px -6px var(--status-color,var(--gold)); }
+    30%{ box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 0 48px 4px var(--status-color,var(--gold)); transform:scale(1.012); }
+    100%{ box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 0 22px -6px var(--status-color,var(--gold)); transform:scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .status-panel.level-up-flash{ animation:none; }
   }
 
   /* ---------- Avatar picker (class + color scheme) ---------- */
@@ -513,6 +527,10 @@
   var settingsOpen = false;
   var avatarPickerOpen = false;
   var reminderDismissed = false;
+  // Not persisted — resets each page load. Seeded to the current level right
+  // after loadState() so the level-up flash only plays for a level gained
+  // *during* this session, never on the first render after opening the app.
+  var lastSeenLevel = null;
   var trendWindow = 7;
   var storageError = false;
 
@@ -953,59 +971,62 @@
   }
 
   function physiqueLabel(score){
-    if(score <= -2.2) return { name:'Shredded', flavor:'Peak form. Definition fully rendered.' };
-    if(score <= -0.8) return { name:'Lean', flavor:'Cutting clean — trending toward definition.' };
-    if(score < 0.8) return { name:'Balanced', flavor:'Steady state. No real drift either way.' };
-    if(score < 2.2) return { name:'Surplus', flavor:'Running hot. A buffer is building up.' };
-    return { name:'Overflowing', flavor:'Redlining. Seams under real pressure.' };
+    if(score <= -2.2) return { name:'Sovereign', flavor:'Full power unlocked. The shadows answer to you.' };
+    if(score <= -0.8) return { name:'Ascendant', flavor:'Rank rising. Strength sharpening by the day.' };
+    if(score < 0.8) return { name:'Awakened', flavor:'Steady. Power held in balance.' };
+    if(score < 2.2) return { name:'Novice', flavor:'Still finding your footing. Push further.' };
+    return { name:'Dormant', flavor:'Underleveled. The power is there — buried.' };
   }
 
-  // Avatar classes: each is a race/kit with 5 selectable color schemes.
+  // Avatar classes: each is a race/kit with 5 selectable color schemes, in a
+  // dark manhwa "shadow hunter" palette — deep near-black coats/hoods, a
+  // muted skin sliver, and one accent used for glow (weapon/visor/aura tie-in
+  // color is the mood aura, not the scheme accent — see mascotSVG).
   // Body silhouette (bulk) reacts to the user's actual logged weight vs. height;
-  // pose/expression/aura still react to the short-term calorie trend (physiqueState).
+  // pose/posture/aura still react to the short-term calorie trend (physiqueState).
   var AVATAR_CLASS_ORDER = ['mage','ranger','knight','demon','dwarf','murloc'];
   var AVATAR_CLASSES = {
     mage: { label:'Mage', bulkBase:1.0, schemes:[
-      {name:'Arcane Blue',   skin:'#f4c9a0', body:'#3a4863', bodyDark:'#2b3548', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#dbe3ef'},
-      {name:'Ember Red',     skin:'#f4c9a0', body:'#6b3a3a', bodyDark:'#4a2626', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#f0d9c8'},
-      {name:'Verdant Green', skin:'#f4c9a0', body:'#33604a', bodyDark:'#234233', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#dcefe2'},
-      {name:'Royal Purple',  skin:'#f4c9a0', body:'#4d3a6b', bodyDark:'#362650', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#ece0f7'},
-      {name:'Midnight Gold', skin:'#f4c9a0', body:'#3a3628', bodyDark:'#26241a', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#ecdca0'}
+      {name:'Void Blue',     skin:'#d9a877', body:'#232733', bodyDark:'#14171e', trim:'#0d0f14', trimHi:'#3a4a6b', accent:'#6d8fd6'},
+      {name:'Ember Ash',     skin:'#d9a877', body:'#2e1f1f', bodyDark:'#170f0f', trim:'#0f0a0a', trimHi:'#5a2e28', accent:'#d9704f'},
+      {name:'Venom Green',   skin:'#d9a877', body:'#1c2b20', bodyDark:'#0f1712', trim:'#0a100c', trimHi:'#2f5a3c', accent:'#6bd68f'},
+      {name:'Abyss Purple',  skin:'#d9a877', body:'#291f38', bodyDark:'#150f1e', trim:'#0d0a14', trimHi:'#4a3468', accent:'#b07fe0'},
+      {name:'Golden Eclipse',skin:'#d9a877', body:'#2b2718', bodyDark:'#16130c', trim:'#0e0c08', trimHi:'#5a4c24', accent:'#d6b25a'}
     ]},
     ranger: { label:'Ranger', bulkBase:0.95, schemes:[
-      {name:'Forest Green',  skin:'#e8b98c', body:'#3f5c3a', bodyDark:'#2c4128', trim:'#4a3524', trimHi:'#5e4630', accent:'#d8c9a3'},
-      {name:'Autumn Brown',  skin:'#e8b98c', body:'#6b4a2c', bodyDark:'#4a3220', trim:'#3a2818', trimHi:'#4e3a24', accent:'#e8d5b0'},
-      {name:'Shadow Grey',   skin:'#e8b98c', body:'#4a4f52', bodyDark:'#33373a', trim:'#2c2f31', trimHi:'#404447', accent:'#c9d1d3'},
-      {name:'Desert Tan',    skin:'#e8b98c', body:'#8a6b3f', bodyDark:'#63492a', trim:'#4a3524', trimHi:'#5e4630', accent:'#f0e2bd'},
-      {name:'Twilight Blue', skin:'#e8b98c', body:'#33475c', bodyDark:'#232e3f', trim:'#2b2f3d', trimHi:'#3d4256', accent:'#cfe0ec'}
+      {name:'Forest Shadow', skin:'#d2a273', body:'#1b2420', bodyDark:'#10150f', trim:'#0c1210', trimHi:'#3d5a44', accent:'#7fae7a'},
+      {name:'Ash Brown',     skin:'#d2a273', body:'#241c14', bodyDark:'#130f0a', trim:'#0e0b08', trimHi:'#4a3826', accent:'#c9a267'},
+      {name:'Steel Grey',    skin:'#d2a273', body:'#21262b', bodyDark:'#121518', trim:'#0c0e10', trimHi:'#3f4a52', accent:'#9fb0bd'},
+      {name:'Dune Tan',      skin:'#d2a273', body:'#2b2416', bodyDark:'#16120b', trim:'#0e0b07', trimHi:'#5a4a2a', accent:'#d6bd85'},
+      {name:'Nightfall Blue',skin:'#d2a273', body:'#1b232e', bodyDark:'#0f141a', trim:'#0a0e12', trimHi:'#35485c', accent:'#7fa8d6'}
     ]},
     knight: { label:'Knight', bulkBase:1.05, schemes:[
-      {name:'Steel Silver',    skin:'#f0c19a', body:'#7a828c', bodyDark:'#565c64', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#e6e9ec'},
-      {name:'Crimson Guard',   skin:'#f0c19a', body:'#7a3a3a', bodyDark:'#532727', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#f0d9d9'},
-      {name:'Royal Gold',      skin:'#f0c19a', body:'#8a742e', bodyDark:'#5e4f1f', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#f5ecc9'},
-      {name:'Emerald Order',   skin:'#f0c19a', body:'#33604a', bodyDark:'#234233', trim:'#8a939c', trimHi:'#b0b8c0', accent:'#d9f0e4'},
-      {name:'Obsidian Knight', skin:'#f0c19a', body:'#2e3236', bodyDark:'#1c1f22', trim:'#4a5054', trimHi:'#666e73', accent:'#cfd6db'}
+      {name:'Steel',         skin:'#d9a877', body:'#2b2f36', bodyDark:'#181a1f', trim:'#454c56', trimHi:'#7d8896', accent:'#c7d0da'},
+      {name:'Crimson Guard', skin:'#d9a877', body:'#331d1d', bodyDark:'#1a0f0f', trim:'#4a2828', trimHi:'#7d4646', accent:'#d68f8f'},
+      {name:'Royal Gold',    skin:'#d9a877', body:'#332c14', bodyDark:'#1a160a', trim:'#4a3f1c', trimHi:'#7d6b30', accent:'#d6c082'},
+      {name:'Emerald Order', skin:'#d9a877', body:'#17301f', bodyDark:'#0c1811', trim:'#244a30', trimHi:'#3e7d54', accent:'#8fd6a8'},
+      {name:'Obsidian',      skin:'#d9a877', body:'#202226', bodyDark:'#121316', trim:'#303338', trimHi:'#4a4e54', accent:'#a8afba'}
     ]},
     demon: { label:'Demon', bulkBase:1.0, schemes:[
-      {name:'Crimson',       skin:'#b23a3a', body:'#3a1414', bodyDark:'#241010', trim:'#2b1414', trimHi:'#4a2020', accent:'#ff9d4d'},
-      {name:'Violet',        skin:'#6b3a8a', body:'#241433', bodyDark:'#170d21', trim:'#241433', trimHi:'#3d2050', accent:'#c98dff'},
-      {name:'Toxic Green',   skin:'#3f8a4a', body:'#142914', bodyDark:'#0c1a0c', trim:'#142914', trimHi:'#1f4a24', accent:'#a8ff8d'},
-      {name:'Shadow Black',  skin:'#3a3a40', body:'#131315', bodyDark:'#0a0a0b', trim:'#131315', trimHi:'#232326', accent:'#8d9dff'},
-      {name:'Molten Orange', skin:'#b2611a', body:'#331c0a', bodyDark:'#211206', trim:'#331c0a', trimHi:'#4a2c10', accent:'#ffd48d'}
+      {name:'Crimson',  skin:'#7a2a2a', body:'#1c0d0d', bodyDark:'#0f0606', trim:'#100808', trimHi:'#5a1f1f', accent:'#ff6b4d'},
+      {name:'Violet',   skin:'#4a2a5a', body:'#170d1e', bodyDark:'#0c0711', trim:'#0a0710', trimHi:'#3d2450', accent:'#b06bff'},
+      {name:'Toxic',    skin:'#2a5a30', body:'#0d1c10', bodyDark:'#070f09', trim:'#08100a', trimHi:'#1f5a2a', accent:'#7dff8d'},
+      {name:'Shadow',   skin:'#2a2a30', body:'#0d0d10', bodyDark:'#07070a', trim:'#08080b', trimHi:'#24242a', accent:'#7d8dff'},
+      {name:'Molten',   skin:'#7a3a12', body:'#1c0f06', bodyDark:'#0f0703', trim:'#100a04', trimHi:'#5a2e10', accent:'#ffab5a'}
     ]},
     dwarf: { label:'Dwarf', bulkBase:1.15, schemes:[
-      {name:'Ginger Clan',   skin:'#e8b98c', body:'#6b4a2c', bodyDark:'#4a3220', trim:'#a85a2e', trimHi:'#c07040', accent:'#d8c9a3'},
-      {name:'Iron Grey',     skin:'#e0b088', body:'#4a4f52', bodyDark:'#33373a', trim:'#8a8f94', trimHi:'#a8adb2', accent:'#c9d1d3'},
-      {name:'Copper Beard',  skin:'#e8b98c', body:'#5a3a2c', bodyDark:'#3d2820', trim:'#b06b3a', trimHi:'#c8865a', accent:'#e0c9a8'},
-      {name:'Midnight Clan', skin:'#e0b088', body:'#3a4863', bodyDark:'#2b3548', trim:'#33363b', trimHi:'#4a4e54', accent:'#dbe3ef'},
-      {name:'Golden Braid',  skin:'#e8b98c', body:'#5e4f1f', bodyDark:'#423717', trim:'#c9a24a', trimHi:'#ddbb6e', accent:'#f5ecc9'}
+      {name:'Ginger',       skin:'#d2a273', body:'#241a12', bodyDark:'#140e0a', trim:'#3a2818', trimHi:'#7a4a28', accent:'#c9a24a'},
+      {name:'Iron Grey',    skin:'#d2a273', body:'#21262b', bodyDark:'#121518', trim:'#3a3f44', trimHi:'#6b7178', accent:'#a8afb8'},
+      {name:'Copper',       skin:'#d2a273', body:'#2b1c14', bodyDark:'#160f0a', trim:'#4a2e1c', trimHi:'#8a5a34', accent:'#d69860'},
+      {name:'Midnight Clan',skin:'#d2a273', body:'#1b232e', bodyDark:'#0f141a', trim:'#24303d', trimHi:'#445a70', accent:'#7fa0c9'},
+      {name:'Golden Braid', skin:'#d2a273', body:'#2b2412', bodyDark:'#160f08', trim:'#4a3c18', trimHi:'#8a6f2c', accent:'#d6b558'}
     ]},
     murloc: { label:'Murloc', bulkBase:0.95, schemes:[
-      {name:'Reef Green',    skin:'#4a8a5a', body:'#2b3548', bodyDark:'#1c2330', trim:'#2e5c3a', trimHi:'#66b07a', accent:'#dbe3ef'},
-      {name:'Tidal Blue',    skin:'#3a6b8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#24475c', trimHi:'#5590b0', accent:'#dbe3ef'},
-      {name:'Coral Pink',    skin:'#b06b7a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c4552', trimHi:'#cf8d9a', accent:'#f0dbe0'},
-      {name:'Swamp Purple',  skin:'#6b4a8a', body:'#2b3548', bodyDark:'#1c2330', trim:'#47305c', trimHi:'#8d6bb0', accent:'#e6dbef'},
-      {name:'Golden Murloc', skin:'#b09a3a', body:'#2b3548', bodyDark:'#1c2330', trim:'#7c6c24', trimHi:'#d0ba5e', accent:'#f5ecc9'}
+      {name:'Reef Green',   skin:'#294530', body:'#161c20', bodyDark:'#0c0f11', trim:'#0a1210', trimHi:'#3a6b4a', accent:'#6ed69a'},
+      {name:'Tidal Blue',   skin:'#1e3a4a', body:'#141c22', bodyDark:'#0a0f12', trim:'#0a1216', trimHi:'#2e5a70', accent:'#6ec6e0'},
+      {name:'Coral',        skin:'#4a2530', body:'#201418', bodyDark:'#110b0d', trim:'#160c0f', trimHi:'#6b2e3d', accent:'#d67d90'},
+      {name:'Swamp Purple', skin:'#35244a', body:'#191220', bodyDark:'#0d0912', trim:'#0f0a16', trimHi:'#4a2e6b', accent:'#a87de0'},
+      {name:'Golden',       skin:'#4a4020', body:'#201c10', bodyDark:'#110e08', trim:'#16130a', trimHi:'#6b5c28', accent:'#d6bd5a'}
     ]}
   };
 
@@ -1045,241 +1066,198 @@
     var uid = 'm' + classId + (schemeIdx||0) + '_' + Math.round(((score||0)+3)*100);
 
     var color = physiqueColor(score);
+    // Power tier: same 5 thresholds as physiqueLabel, but every knob here is
+    // about how a leveling-up hunter would look at that rank rather than a
+    // body-shape slider — bend (hunch), cape flare, aura strength, and a
+    // determined-vs-tired brow angle.
     var band;
-    if(score <= -2.2) band = { squat:0.88, stanceW:0.88, sparkles:3, sweat:false, brow:0, smile:'smug', glowF:'glow' };
-    else if(score <= -0.8) band = { squat:0.94, stanceW:0.93, sparkles:2, sweat:false, brow:0, smile:'happy', glowF:'glow' };
-    else if(score < 0.8)   band = { squat:1.0,  stanceW:1.0,  sparkles:1, sweat:false, brow:0, smile:'happy', glowF:'glow' };
-    else if(score < 2.2)   band = { squat:1.14, stanceW:1.15, sparkles:1, sweat:true,  brow:3, smile:'o',     glowF:'glow' };
-    else                    band = { squat:1.3,  stanceW:1.35, sparkles:0, sweat:true,  brow:6, smile:'o',     glowF:'bigglow' };
+    if(score <= -2.2)      band = { tier:'Sovereign', bend:0,   cape:1.35, aura:1.0,  power:1.15, particles:4, browAngle:6 };
+    else if(score <= -0.8) band = { tier:'Ascendant', bend:1.2, cape:1.05, aura:0.75, power:1.08, particles:3, browAngle:4 };
+    else if(score < 0.8)   band = { tier:'Awakened',  bend:2.2, cape:0.85, aura:0.55, power:1.0,  particles:2, browAngle:2 };
+    else if(score < 2.2)   band = { tier:'Novice',    bend:4,   cape:0.5,  aura:0.28, power:0.92, particles:1, browAngle:0 };
+    else                    band = { tier:'Dormant',   bend:6.5, cape:0.28, aura:0.1,  power:0.85, particles:0, browAngle:-3 };
 
-    // Body size: short-term calorie-trend pose (band.squat) combined with the
-    // user's actual weight-for-height (bulk) and a per-class base build.
+    // Body size: short-term calorie-trend "power" combined with the user's
+    // actual weight-for-height (bulk) and a per-class base build.
     var bulkEff = clamp((bulk||1) * (cdef.bulkBase||1), 0.75, 1.45);
-    var squatEff = clamp(band.squat * bulkEff, 0.7, 1.7);
-    var stanceEff = clamp(band.stanceW * (1 + (bulkEff-1)*0.7), 0.7, 1.7);
+    var squatEff = clamp(band.power * bulkEff, 0.7, 1.7);
+    var stanceEff = clamp(band.power * (1 + (bulkEff-1)*0.7), 0.7, 1.7);
+    var bw = (squatEff-1)*11;
+    var lx = (stanceEff-1)*10;
 
-    var SKIN=pal.skin, HAIR=pal.trim, HAIR_HI=pal.trimHi, JACKET=pal.body, JACKET_DARK=pal.bodyDark, SHIRT=pal.accent, PANTS=pal.bodyDark, BLUSH='#f2a8a0', SHOE='#20242c';
-    var bodyBot = 178 + (squatEff-1)*12;
-    var bw = (squatEff-1)*9;
-    var lx = (stanceEff-1)*9;
+    var SKIN=pal.skin, HAIR=pal.trim, HAIR_HI=pal.trimHi, JACKET=pal.body, JACKET_DARK=pal.bodyDark, SHOE='#0a0c0f';
+
+    var cx = 100;
+    var headR = 19, headCy = 38;
+    var shoulderY = 64, shoulderHalfW = 30 + bw;
+    var waistY = 120, waistHalfW = 20 + bw;
+    var hemY = 168, hipHalfW = 25 + bw*1.1;
+    var footY = 206;
     // Weapon classes grip further out than the mage's small orb so a much
-    // larger weapon has room to clear the head/hair silhouette.
-    var hx = (classId === 'mage') ? 142 : 158, hy = 116;
+    // larger weapon has room to clear the head/hood silhouette.
+    var hx = (classId === 'mage') ? 148 : 160, hy = 96;
 
     var bg = [];
-    bg.push('<ellipse cx="100" cy="120" rx="100" ry="110" fill="url(#spot'+uid+')"/>');
+    bg.push('<ellipse cx="100" cy="118" rx="98" ry="108" fill="url(#spot'+uid+')"/>');
+    // Aura ring — a broken, slowly rotating circle whose visibility is the
+    // clearest "how powerful right now" signal, independent of class.
+    bg.push('<circle class="mascot-aura" cx="100" cy="118" r="90" fill="none" stroke="'+color+'" stroke-width="1.4" stroke-dasharray="4 10" opacity="'+(band.aura*0.55).toFixed(2)+'"/>');
+
+    // ---- Legs / feet — kept out of the upper-body bend below so a hunch
+    // reads as posture, not the whole sprite tipping over.
+    var legParts = [];
+    legParts.push('<path d="M'+(cx-hipHalfW*0.55-lx)+','+(hemY-4)+' L'+(cx-8-lx*1.2)+','+footY+' L'+(cx+2-lx*1.2)+','+footY+' L'+(cx-4-lx)+','+(hemY-4)+' Z" fill="'+JACKET_DARK+'"/>');
+    legParts.push('<path d="M'+(cx+hipHalfW*0.55+lx)+','+(hemY-4)+' L'+(cx+8+lx*1.2)+','+footY+' L'+(cx-2+lx*1.2)+','+footY+' L'+(cx+4+lx)+','+(hemY-4)+' Z" fill="'+JACKET_DARK+'"/>');
+    legParts.push('<path d="M'+(cx-14-lx*1.2)+','+(footY-2)+' L'+(cx+4-lx*1.2)+','+(footY-2)+' L'+(cx+6-lx*1.2)+','+(footY+7)+' L'+(cx-16-lx*1.2)+','+(footY+7)+' Z" fill="'+SHOE+'"/>');
+    legParts.push('<path d="M'+(cx-4+lx*1.2)+','+(footY-2)+' L'+(cx+14+lx*1.2)+','+(footY-2)+' L'+(cx+16+lx*1.2)+','+(footY+7)+' L'+(cx-6+lx*1.2)+','+(footY+7)+' Z" fill="'+SHOE+'"/>');
+
+    // ---- Upper body (cape, coat, arms, head, weapon) — tips forward at low
+    // power tiers (band.bend, degrees) pivoted at the shoulder line.
+    var upper = [];
+
+    var capeSpread = 32 * band.cape;
+    var capeDrop = 38 * band.cape;
+    upper.push('<path d="M'+(cx-shoulderHalfW*0.85)+','+(shoulderY+6)+' C'+(cx-shoulderHalfW-capeSpread*0.5)+','+(shoulderY+40)+' '+(cx-shoulderHalfW-capeSpread)+','+(hemY+capeDrop*0.6)+' '+(cx-hipHalfW*0.6)+','+(hemY+capeDrop)+' L'+(cx-hipHalfW*0.2)+','+(hemY-10)+' Z" fill="url(#capeGrad'+uid+')" stroke="'+HAIR_HI+'" stroke-width="0.8" stroke-opacity="0.35"/>');
+    upper.push('<path d="M'+(cx+shoulderHalfW*0.85)+','+(shoulderY+6)+' C'+(cx+shoulderHalfW+capeSpread*0.5)+','+(shoulderY+40)+' '+(cx+shoulderHalfW+capeSpread)+','+(hemY+capeDrop*0.6)+' '+(cx+hipHalfW*0.6)+','+(hemY+capeDrop)+' L'+(cx+hipHalfW*0.2)+','+(hemY-10)+' Z" fill="url(#capeGrad'+uid+')" stroke="'+HAIR_HI+'" stroke-width="0.8" stroke-opacity="0.35"/>');
+
+    var idleShoulder = [cx-shoulderHalfW*0.8, shoulderY+8];
+    var idleHand = [cx-shoulderHalfW+2-lx*0.4, shoulderY+62];
+    var idleCtl = [cx-shoulderHalfW-8, shoulderY+34];
+    upper.push('<path d="M'+idleShoulder[0]+','+idleShoulder[1]+' Q'+idleCtl[0]+','+idleCtl[1]+' '+idleHand[0]+','+idleHand[1]+'" stroke="'+JACKET+'" stroke-width="13" stroke-linecap="round" fill="none"/>');
+    upper.push('<circle cx="'+idleHand[0]+'" cy="'+idleHand[1]+'" r="5" fill="'+SKIN+'"/>');
+
+    var raisedShoulder = [cx+shoulderHalfW*0.75, shoulderY+6];
+    var raisedCtl = [cx+shoulderHalfW+14, shoulderY-10];
+    upper.push('<path d="M'+raisedShoulder[0]+','+raisedShoulder[1]+' Q'+raisedCtl[0]+','+raisedCtl[1]+' '+hx+','+hy+'" stroke="'+JACKET+'" stroke-width="13" stroke-linecap="round" fill="none"/>');
+    upper.push('<circle cx="'+hx+'" cy="'+hy+'" r="5.5" fill="'+SKIN+'"/>');
+
+    var coatPath = 'M'+(cx-shoulderHalfW)+','+shoulderY+' L'+(cx-waistHalfW)+','+waistY+' L'+(cx-hipHalfW)+','+hemY+' L'+(cx-hipHalfW*0.25)+','+(hemY-14)+' L'+(cx-6)+','+waistY+' L'+(cx-9)+','+(shoulderY+8)+' Z';
+    var coatPathR = 'M'+(cx+shoulderHalfW)+','+shoulderY+' L'+(cx+waistHalfW)+','+waistY+' L'+(cx+hipHalfW)+','+hemY+' L'+(cx+hipHalfW*0.25)+','+(hemY-14)+' L'+(cx+6)+','+waistY+' L'+(cx+9)+','+(shoulderY+8)+' Z';
+    upper.push('<path d="'+coatPath+'" fill="url(#jacketGrad'+uid+')"/>');
+    upper.push('<path d="'+coatPathR+'" fill="url(#jacketGrad'+uid+')"/>');
+    upper.push('<path d="M'+(cx-9)+','+(shoulderY+8)+' L'+(cx-6)+','+waistY+' L'+(cx-hipHalfW*0.25)+','+(hemY-14)+'" stroke="'+color+'" stroke-width="1.4" fill="none" opacity="0.75"/>');
+    upper.push('<path d="M'+(cx+9)+','+(shoulderY+8)+' L'+(cx+6)+','+waistY+' L'+(cx+hipHalfW*0.25)+','+(hemY-14)+'" stroke="'+color+'" stroke-width="1.4" fill="none" opacity="0.75"/>');
+    upper.push('<path d="M'+(cx-shoulderHalfW)+','+shoulderY+' L'+(cx-waistHalfW)+','+waistY+' L'+(cx-hipHalfW)+','+hemY+'" stroke="'+HAIR_HI+'" stroke-width="1" opacity="0.5" fill="none"/>');
+    upper.push('<path d="M'+(cx+shoulderHalfW)+','+shoulderY+' L'+(cx+waistHalfW)+','+waistY+' L'+(cx+hipHalfW)+','+hemY+'" stroke="'+HAIR_HI+'" stroke-width="1" opacity="0.5" fill="none"/>');
+
+    upper.push('<path d="M'+(cx-9)+','+(shoulderY+6)+' L'+(cx-20)+','+(shoulderY-10)+' L'+(cx-5)+','+(shoulderY-2)+' Z" fill="'+HAIR+'"/>');
+    upper.push('<path d="M'+(cx+9)+','+(shoulderY+6)+' L'+(cx+20)+','+(shoulderY-10)+' L'+(cx+5)+','+(shoulderY-2)+' Z" fill="'+HAIR+'"/>');
+
+    // ---- Head — most of the face stays in shadow; the glowing eyes (or
+    // visor, for the knight) carry the expression instead of a mouth.
+    var head = [];
+    var shadowFace = (classId === 'mage' || classId === 'ranger');
+    var headFill = shadowFace ? 'url(#hoodGrad'+uid+')' : SKIN;
+    head.push('<circle cx="'+cx+'" cy="'+headCy+'" r="'+headR+'" fill="'+headFill+'"/>');
+
+    if(classId === 'mage'){
+      head.push('<path d="M'+(cx-headR-3)+','+(headCy-2)+' C'+(cx-headR-6)+','+(headCy-24)+' '+(cx-10)+','+(headCy-headR-14)+' '+cx+','+(headCy-headR-12)+' C'+(cx+10)+','+(headCy-headR-14)+' '+(cx+headR+6)+','+(headCy-24)+' '+(cx+headR+3)+','+(headCy-2)+' L'+(cx+headR-2)+','+(headCy-6)+' C'+(cx+headR-2)+','+(headCy-22)+' '+(cx+8)+','+(headCy-headR-4)+' '+cx+','+(headCy-headR-2)+' C'+(cx-8)+','+(headCy-headR-4)+' '+(cx-headR+2)+','+(headCy-22)+' '+(cx-headR+2)+','+(headCy-6)+' Z" fill="'+HAIR+'"/>');
+    } else if(classId === 'ranger'){
+      head.push('<path d="M'+(cx-headR-2)+','+(headCy-4)+' C'+(cx-headR-4)+','+(headCy-22)+' '+(cx-8)+','+(headCy-headR-10)+' '+cx+','+(headCy-headR-9)+' C'+(cx+8)+','+(headCy-headR-10)+' '+(cx+headR+4)+','+(headCy-22)+' '+(cx+headR+2)+','+(headCy-4)+' L'+(cx+headR-3)+','+(headCy-8)+' C'+(cx+headR-3)+','+(headCy-20)+' '+(cx+7)+','+(headCy-headR-2)+' '+cx+','+(headCy-headR)+' C'+(cx-7)+','+(headCy-headR-2)+' '+(cx-headR+3)+','+(headCy-20)+' '+(cx-headR+3)+','+(headCy-8)+' Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M'+(cx-headR+2)+','+(headCy+6)+' L'+(cx+headR-2)+','+(headCy+6)+' L'+(cx+headR-6)+','+(headCy+14)+' L'+(cx-headR+6)+','+(headCy+14)+' Z" fill="'+HAIR+'" opacity="0.9"/>');
+    } else if(classId === 'knight'){
+      head.push('<path d="M'+(cx-headR-1)+','+headCy+' C'+(cx-headR-2)+','+(headCy-24)+' '+(cx-9)+','+(headCy-headR-10)+' '+cx+','+(headCy-headR-10)+' C'+(cx+9)+','+(headCy-headR-10)+' '+(cx+headR+2)+','+(headCy-24)+' '+(cx+headR+1)+','+headCy+' L'+(cx+headR)+','+(headCy+6)+' L'+(cx-headR)+','+(headCy+6)+' Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M'+cx+','+(headCy-headR-8)+' L'+cx+','+(headCy-headR+4)+'" stroke="'+HAIR_HI+'" stroke-width="2.4" stroke-linecap="round"/>');
+    } else if(classId === 'demon'){
+      head.push('<path d="M'+(cx-10)+','+(headCy-headR+2)+' C'+(cx-16)+','+(headCy-headR-14)+' '+(cx-26)+','+(headCy-headR-22)+' '+(cx-32)+','+(headCy-headR-24)+' C'+(cx-24)+','+(headCy-headR-16)+' '+(cx-18)+','+(headCy-headR-4)+' '+(cx-14)+','+(headCy-headR+8)+' Z" fill="#c9b98e"/>');
+      head.push('<path d="M'+(cx+10)+','+(headCy-headR+2)+' C'+(cx+16)+','+(headCy-headR-14)+' '+(cx+26)+','+(headCy-headR-22)+' '+(cx+32)+','+(headCy-headR-24)+' C'+(cx+24)+','+(headCy-headR-16)+' '+(cx+18)+','+(headCy-headR-4)+' '+(cx+14)+','+(headCy-headR+8)+' Z" fill="#c9b98e"/>');
+    } else if(classId === 'dwarf'){
+      head.push('<path d="M'+(cx-headR-2)+','+(headCy-2)+' C'+(cx-headR)+','+(headCy-22)+' '+(cx-8)+','+(headCy-headR-6)+' '+cx+','+(headCy-headR-6)+' C'+(cx+8)+','+(headCy-headR-6)+' '+(cx+headR)+','+(headCy-22)+' '+(cx+headR+2)+','+(headCy-2)+' L'+(cx+headR-4)+','+(headCy-4)+' C'+(cx+headR-4)+','+(headCy-18)+' '+(cx+7)+','+(headCy-headR)+' '+cx+','+(headCy-headR)+' C'+(cx-7)+','+(headCy-headR)+' '+(cx-headR+4)+','+(headCy-18)+' '+(cx-headR+4)+','+(headCy-4)+' Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M'+(cx-15)+','+(headCy+6)+' C'+(cx-16)+','+(headCy+26)+' '+(cx-7)+','+(headCy+38)+' '+cx+','+(headCy+39)+' C'+(cx+7)+','+(headCy+38)+' '+(cx+16)+','+(headCy+26)+' '+(cx+15)+','+(headCy+6)+' C'+(cx+11)+','+(headCy+20)+' '+(cx+6)+','+(headCy+26)+' '+cx+','+(headCy+26)+' C'+(cx-6)+','+(headCy+26)+' '+(cx-11)+','+(headCy+20)+' '+(cx-15)+','+(headCy+6)+' Z" fill="'+HAIR_HI+'" stroke="'+HAIR+'" stroke-width="1"/>');
+    } else if(classId === 'murloc'){
+      head.push('<path d="M'+cx+','+(headCy-headR-10)+' L'+(cx+5)+','+(headCy-headR+2)+' L'+(cx-5)+','+(headCy-headR+2)+' Z" fill="'+HAIR+'"/>');
+      head.push('<path d="M'+cx+','+(headCy-headR+2)+' L'+(cx+4)+','+(headCy-headR+14)+' L'+(cx-4)+','+(headCy-headR+14)+' Z" fill="'+HAIR+'" opacity="0.85"/>');
+    }
+
+    // Eyes — thin glowing almond slits (or a visor bar for the knight), the
+    // focal point of the whole design. Brighter/wider at higher power tiers.
+    var eyeY = headCy + 1, eyeGap = 8;
+    var eyeScale = classId === 'murloc' ? 1.25 : 1;
+    var eyeOpacity = (0.5 + band.aura*0.5).toFixed(2);
+    if(classId === 'knight'){
+      head.push('<g class="mascot-eye"><rect x="'+(cx-13)+'" y="'+(eyeY-2)+'" width="26" height="4" rx="2" fill="'+color+'" filter="url(#eyeglow'+uid+')" opacity="'+eyeOpacity+'"/></g>');
+    } else {
+      [cx-eyeGap, cx+eyeGap].forEach(function(ex){
+        var w = 6.4*eyeScale, h = 3*eyeScale;
+        head.push('<g class="mascot-eye"><path d="M'+(ex-w)+','+eyeY+' Q'+ex+','+(eyeY-h)+' '+(ex+w)+','+eyeY+' Q'+ex+','+(eyeY+h*0.55)+' '+(ex-w)+','+eyeY+' Z" fill="'+color+'" filter="url(#eyeglow'+uid+')" opacity="'+eyeOpacity+'"/></g>');
+      });
+    }
+
+    if(classId !== 'murloc' && classId !== 'knight'){
+      head.push('<path d="M'+(cx-13)+','+(eyeY-6-band.browAngle*0.3)+' L'+(cx-5)+','+(eyeY-6+band.browAngle*0.3)+'" stroke="'+HAIR+'" stroke-width="2" stroke-linecap="round"/>');
+      head.push('<path d="M'+(cx+13)+','+(eyeY-6-band.browAngle*0.3)+' L'+(cx+5)+','+(eyeY-6+band.browAngle*0.3)+'" stroke="'+HAIR+'" stroke-width="2" stroke-linecap="round"/>');
+    }
+
+    upper.push('<g class="mascot-head">' + head.join('') + '</g>');
+
+    // ---- Held weapon — sized to roughly the avatar's own height, sharpened
+    // and darkened to match the mood, with a glow tied to the aura color.
+    var weapon = [];
+    if(classId === 'ranger'){
+      var bowTop = 6, bowBot = 202, bowMid = (bowTop+bowBot)/2, bowBulge = 28;
+      weapon.push('<path d="M'+hx+','+bowTop+' Q'+(hx+bowBulge)+','+bowMid+' '+hx+','+bowBot+'" stroke="'+HAIR+'" stroke-width="4" fill="none" stroke-linecap="round"/>');
+      weapon.push('<path d="M'+(hx-1)+','+bowTop+' L'+(hx-1)+','+bowBot+'" stroke="'+color+'" stroke-width="1" opacity="0.8"/>');
+    } else if(classId === 'knight'){
+      var bladeTip = 14, bladeLen = 150, bladeBase = bladeTip+bladeLen, guardY = bladeBase, gripBot = guardY+22;
+      weapon.push('<path d="M'+hx+','+bladeTip+' L'+(hx+3.5)+','+(bladeTip+14)+' L'+(hx+3.5)+','+bladeBase+' L'+(hx-3.5)+','+bladeBase+' L'+(hx-3.5)+','+(bladeTip+14)+' Z" fill="'+HAIR_HI+'"/>');
+      weapon.push('<path d="M'+hx+','+(bladeTip+16)+' L'+hx+','+(bladeBase-4)+'" stroke="'+color+'" stroke-width="1" opacity="0.7"/>');
+      weapon.push('<rect x="'+(hx-13)+'" y="'+guardY+'" width="26" height="4.5" rx="1" fill="'+HAIR+'"/>');
+      weapon.push('<rect x="'+(hx-2.2)+'" y="'+(guardY+4.5)+'" width="4.4" height="'+(gripBot-guardY-4.5)+'" fill="'+HAIR+'"/>');
+      weapon.push('<path d="M56,120 L70,129 L70,154 L56,169 L42,154 L42,129 Z" fill="'+HAIR+'" stroke="'+HAIR_HI+'" stroke-width="1.2"/>');
+      weapon.push('<path d="M56,127 L56,160" stroke="'+color+'" stroke-width="2" opacity="0.6" stroke-linecap="round"/>');
+    } else if(classId === 'demon'){
+      var lanceTip = 2, lanceShaftTop = 28, lanceShaftBot = 198;
+      weapon.push('<path d="M'+hx+','+lanceTip+' L'+(hx+8)+','+lanceShaftTop+' L'+(hx-8)+','+lanceShaftTop+' Z" fill="'+color+'" filter="url(#eyeglow'+uid+')" opacity="0.9"/>');
+      weapon.push('<rect x="'+(hx-2.2)+'" y="'+lanceShaftTop+'" width="4.4" height="'+(lanceShaftBot-lanceShaftTop)+'" fill="'+HAIR+'"/>');
+      weapon.push('<circle cx="'+hx+'" cy="'+hy+'" r="7" fill="none" stroke="'+HAIR_HI+'" stroke-width="2"/>');
+    } else if(classId === 'dwarf'){
+      var axeShaftTop = 20, axeShaftBot = 200;
+      weapon.push('<rect x="'+(hx-2.2)+'" y="'+axeShaftTop+'" width="4.4" height="'+(axeShaftBot-axeShaftTop)+'" fill="'+HAIR+'"/>');
+      weapon.push('<path d="M'+hx+','+axeShaftTop+' C'+(hx+32)+','+(axeShaftTop-6)+' '+(hx+36)+','+(axeShaftTop+34)+' '+hx+','+(axeShaftTop+42)+' C'+(hx+14)+','+(axeShaftTop+32)+' '+(hx+14)+','+(axeShaftTop+8)+' '+hx+','+axeShaftTop+' Z" fill="'+HAIR_HI+'"/>');
+    } else if(classId === 'murloc'){
+      var forkShaftTop = 32, forkShaftBot = 200;
+      weapon.push('<rect x="'+(hx-2.2)+'" y="'+forkShaftTop+'" width="4.4" height="'+(forkShaftBot-forkShaftTop)+'" fill="'+HAIR+'"/>');
+      weapon.push('<path d="M'+hx+','+forkShaftTop+' L'+hx+',6" stroke="'+color+'" stroke-width="3" stroke-linecap="round" opacity="0.85"/>');
+      weapon.push('<path d="M'+(hx-7)+','+forkShaftTop+' Q'+(hx-9)+',18 '+(hx-9)+',6" stroke="'+color+'" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.85"/>');
+      weapon.push('<path d="M'+(hx+7)+','+forkShaftTop+' Q'+(hx+9)+',18 '+(hx+9)+',6" stroke="'+color+'" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.85"/>');
+    } else {
+      weapon.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" filter="url(#eyeglow'+uid+')" opacity="0.9"/>');
+      weapon.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.2" fill="#ffffff"/>');
+    }
+    // Only the mage's orb pulses like a heartbeat — a sword/axe/lance/bow
+    // shouldn't visually throb, so weapons share a plain unanimated group.
+    upper.push('<g class="'+(classId==='mage' ? 'mascot-orb' : 'mascot-item')+'">' + weapon.join('') + '</g>');
 
     var parts = [];
+    parts.push('<g transform="rotate('+(-band.bend)+' '+cx+' '+shoulderY+')">' + upper.join('') + '</g>');
+    parts = legParts.concat(parts);
 
-    if(classId === 'demon'){
-      bg.push('<path d="M70,130 C40,120 20,140 15,170 C35,155 55,150 72,150 Z" fill="'+SKIN+'" opacity="0.3" stroke="'+SKIN+'" stroke-width="1" stroke-opacity="0.6"/>');
-      bg.push('<path d="M124,130 C154,120 174,140 179,170 C159,155 139,150 122,150 Z" fill="'+SKIN+'" opacity="0.3" stroke="'+SKIN+'" stroke-width="1" stroke-opacity="0.6"/>');
+    // Power-tier particles — small embers drifting near the figure.
+    var motePts = [[36,42,1.0],[164,44,0.8],[30,150,0.7],[170,150,0.9]];
+    for(var i=0; i<band.particles; i++){
+      var mp = motePts[i%motePts.length], mx=mp[0], my=mp[1], ms=mp[2];
+      parts.push('<circle class="mascot-sparkle" style="animation-delay:'+(i*0.4)+'s" cx="'+mx+'" cy="'+my+'" r="'+(2.4*ms)+'" fill="'+color+'" opacity="0.8"/>');
     }
-
-    parts.push('<path d="M70,120 C66,140 68,158 78,168 L84,150 C80,142 78,130 80,118 Z" fill="'+JACKET_DARK+'"/>');
-    parts.push('<path d="M124,120 C128,140 126,158 116,168 L110,150 C114,142 116,130 114,118 Z" fill="'+JACKET_DARK+'"/>');
-
-    parts.push('<path d="M'+(80-lx)+',178 C'+(77-lx)+',178 '+(75-lx)+',181 '+(76-lx)+',185 L'+(78-lx*1.2)+',206 C'+(79-lx*1.2)+',210 '+(84-lx*1.2)+',210 '+(85-lx*1.2)+',206 L'+(86-lx)+',184 C'+(86-lx)+',180 '+(83-lx)+',178 '+(80-lx)+',178 Z" fill="'+PANTS+'"/>');
-    parts.push('<path d="M'+(112+lx)+',178 C'+(109+lx)+',178 '+(107+lx)+',181 '+(108+lx)+',185 L'+(110+lx*1.2)+',206 C'+(111+lx*1.2)+',210 '+(116+lx*1.2)+',210 '+(117+lx*1.2)+',206 L'+(118+lx)+',184 C'+(118+lx)+',180 '+(115+lx)+',178 '+(112+lx)+',178 Z" fill="'+PANTS+'"/>');
-    parts.push('<ellipse cx="'+(80-lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+SHOE+'"/>');
-    parts.push('<ellipse cx="'+(115+lx*1.2)+'" cy="209" rx="8" ry="4.5" fill="'+SHOE+'"/>');
-
-    if(classId === 'demon'){
-      parts.push('<path d="M100,'+bodyBot+' C112,'+(bodyBot+10)+' 106,'+(bodyBot+22)+' 116,'+(bodyBot+28)+' C108,'+(bodyBot+24)+' 102,'+(bodyBot+16)+' 99,'+(bodyBot+6)+' Z" fill="'+SKIN+'"/>');
-    }
-
-    parts.push('<path d="M'+(76-bw)+',122 C'+(73-bw)+',136 '+(73-bw)+',152 '+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+' C'+(121+bw)+',152 '+(120+bw)+',136 '+(118+bw)+',122 C'+(115+bw)+',110 105,102 97,102 C89,102 '+(79-bw)+',110 '+(76-bw)+',122 Z" fill="url(#jacketGrad'+uid+')"/>');
-    parts.push('<path d="M97,106 L94,'+(bodyBot-2)+'" stroke="'+color+'" stroke-width="2" fill="none" opacity="0.85"/>');
-    parts.push('<path d="M88,104 L97,116 L106,104" fill="'+SHIRT+'"/>');
-    parts.push('<path d="M'+(77-bw)+','+bodyBot+' L'+(117+bw)+','+bodyBot+'" stroke="'+color+'" stroke-width="1.6" opacity="0.6"/>');
-
-    if(classId === 'knight'){
-      parts.push('<circle cx="'+(79-bw)+'" cy="118" r="7" fill="'+HAIR+'"/>');
-      parts.push('<circle cx="'+(115+bw)+'" cy="118" r="7" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'ranger'){
-      parts.push('<path d="M80,104 L116,138" stroke="'+HAIR+'" stroke-width="3" opacity="0.85"/>');
-      parts.push('<rect x="110" y="96" width="9" height="24" rx="3" fill="'+HAIR+'"/>');
-      parts.push('<path d="M111,96 L114.5,87 L118,96 Z" fill="'+SHIRT+'"/>');
-    } else if(classId === 'dwarf'){
-      parts.push('<path d="M'+(77-bw)+','+(bodyBot-16)+' L'+(117+bw)+','+(bodyBot-16)+'" stroke="'+HAIR_HI+'" stroke-width="4"/>');
-      parts.push('<rect x="92" y="'+(bodyBot-19)+'" width="10" height="7" fill="'+SHIRT+'"/>');
-    }
-
-    parts.push('<path d="M79,118 C71,122 67,132 70,142 L78,141 C77,132 79,125 84,120 Z" fill="'+JACKET+'"/>');
-    parts.push('<circle cx="73" cy="143" r="5" fill="'+SKIN+'"/>');
-
-    parts.push('<path d="M104,110 C113,112 120,118 125,126 L'+(hx-4)+','+(hy+2)+' L'+(hx-10)+','+(hy+8)+' L116,130 C111,122 106,116 99,112 Z" fill="'+JACKET+'"/>');
-    parts.push('<circle cx="'+(hx-2)+'" cy="'+(hy+4)+'" r="5.5" fill="'+SKIN+'"/>');
-
-    var head = [];
-
-    // Behind-skull layer (temple hair / cheek guards), drawn before the skull disc.
-    if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
-      head.push('<path d="M53,62 C50,40 58,20 76,14 C68,26 66,44 68,62 Z" fill="url(#hairGrad'+uid+')"/>');
-      head.push('<path d="M141,62 C144,40 136,20 118,14 C126,26 128,44 126,62 Z" fill="url(#hairGrad'+uid+')"/>');
-    } else if(classId === 'knight'){
-      head.push('<path d="M55,50 C50,62 52,76 60,86 L68,80 C62,72 61,60 64,50 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M139,50 C144,62 142,76 134,86 L126,80 C132,72 133,60 130,50 Z" fill="'+HAIR+'"/>');
-    }
-
-    head.push('<circle cx="97" cy="64" r="42" fill="'+SKIN+'"/>');
-
-    // Front head covering — this is the main class silhouette (hair / helmet / horns / fin).
-    if(classId === 'mage' || classId === 'ranger' || classId === 'dwarf'){
-      head.push('<path d="M54,56 C50,30 66,10 97,9 C128,10 144,30 140,56 C138,42 130,28 118,22 C120,30 116,36 108,32 C110,24 104,17 97,17 C90,17 84,24 86,32 C78,36 74,30 76,22 C64,28 56,42 54,56 Z" fill="url(#hairGrad'+uid+')"/>');
-      head.push('<path d="M78,18 C80,10 88,4 97,4 C106,4 114,10 116,18 C110,14 104,12 97,12 C90,12 84,14 78,18 Z" fill="'+HAIR_HI+'"/>');
-      head.push('<path d="M62,34 C60,26 64,18 72,14 C68,20 67,27 69,34 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M132,34 C134,26 130,18 122,14 C126,20 127,27 125,34 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M90,20 C88,28 88,34 91,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-      head.push('<path d="M105,20 C107,28 107,34 104,40" stroke="'+HAIR+'" stroke-width="3.2" fill="none" stroke-linecap="round"/>');
-      head.push('<path d="M64,42 C68,32 76,24 86,21" stroke="'+HAIR_HI+'" stroke-width="1.8" fill="none" opacity="0.45" stroke-linecap="round"/>');
-    } else if(classId === 'knight'){
-      head.push('<path d="M55,58 C50,30 66,8 97,8 C128,8 144,30 139,58 C136,44 128,32 116,26 L116,34 C108,28 90,28 82,34 L82,26 C70,32 58,44 55,58 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M97,10 L97,28" stroke="'+HAIR_HI+'" stroke-width="3" stroke-linecap="round"/>');
-      head.push('<path d="M90,12 L97,2 L104,12 Z" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'demon'){
-      head.push('<path d="M70,20 C80,10 114,10 124,20 C114,16 80,16 70,20 Z" fill="'+HAIR+'" opacity="0.85"/>');
-      head.push('<path d="M74,30 C68,16 60,6 48,2 C60,6 68,16 72,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
-      head.push('<path d="M120,30 C126,16 134,6 146,2 C134,6 126,16 122,32 Z" fill="#e8dcc0" stroke="#3a3226" stroke-width="1"/>');
-      head.push('<circle cx="49" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
-      head.push('<circle cx="145" cy="4" r="1.6" fill="#3a3226" opacity="0.7"/>');
-    } else if(classId === 'murloc'){
-      head.push('<path d="M97,6 L104,20 L90,20 Z" fill="'+HAIR+'"/>');
-      head.push('<path d="M97,20 L103,32 L91,32 Z" fill="'+HAIR+'" opacity="0.9"/>');
-      head.push('<path d="M97,34 L102,44 L92,44 Z" fill="'+HAIR+'" opacity="0.8"/>');
-      head.push('<path d="M97,6 L97,44" stroke="'+HAIR_HI+'" stroke-width="1.2" opacity="0.6"/>');
-      head.push('<path d="M60,74 C64,78 64,84 60,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
-      head.push('<path d="M134,74 C130,78 130,84 134,88" stroke="'+HAIR_HI+'" stroke-width="2" fill="none" stroke-linecap="round"/>');
-    }
-
-    var browY = 51 + band.brow*0.3;
-    if(classId !== 'murloc'){
-      head.push('<path d="M76,'+(browY+3)+' Q82,'+browY+' 88,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-      head.push('<path d="M106,'+(browY+3)+' Q112,'+browY+' 118,'+(browY+3)+'" stroke="'+HAIR+'" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-    }
-
-    var ey = 66 + band.brow*0.4;
-    var eyeScale = classId === 'murloc' ? 1.15 : 1;
-    [84, 110].forEach(function(ex){
-      var eye = [];
-      var rx = 8*eyeScale, ry = 10*eyeScale;
-      eye.push('<ellipse cx="'+ex+'" cy="'+ey+'" rx="'+rx+'" ry="'+ry+'" fill="#ffffff"/>');
-      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+2)+'" rx="'+(6.4*eyeScale)+'" ry="'+(8*eyeScale)+'" fill="url(#irisGrad'+uid+')"/>');
-      eye.push('<ellipse cx="'+ex+'" cy="'+(ey+4)+'" rx="'+(3.2*eyeScale)+'" ry="'+(4.2*eyeScale)+'" fill="#1a1d24"/>');
-      eye.push('<circle cx="'+(ex-2.4)+'" cy="'+(ey-2)+'" r="2.4" fill="#ffffff"/>');
-      eye.push('<circle cx="'+(ex+2.6)+'" cy="'+(ey+4.2)+'" r="1.1" fill="#ffffff" opacity="0.9"/>');
-      eye.push('<circle cx="'+(ex-3.6)+'" cy="'+(ey+1)+'" r="0.7" fill="#ffffff" opacity="0.7"/>');
-      eye.push('<path d="M'+(ex-8)+','+(ey-6)+' Q'+ex+','+(ey-10)+' '+(ex+8)+','+(ey-6)+'" stroke="'+HAIR+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
-      head.push('<g class="mascot-eye">' + eye.join('') + '</g>');
-    });
-
-    head.push('<ellipse cx="72" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
-    head.push('<ellipse cx="122" cy="80" rx="6" ry="3.5" fill="'+BLUSH+'" opacity="0.55"/>');
-
-    if(classId === 'dwarf'){
-      head.push('<path d="M72,78 C70,96 78,112 97,116 C116,112 124,96 122,78 C118,92 108,100 97,100 C86,100 76,92 72,78 Z" fill="url(#hairGrad'+uid+')"/>');
-      head.push('<path d="M90,100 L88,112" stroke="'+HAIR_HI+'" stroke-width="2" stroke-linecap="round"/>');
-    }
-
-    if(band.smile === 'happy'){
-      head.push('<path d="M90,86 Q97,91 104,86" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-    } else if(band.smile === 'smug'){
-      head.push('<path d="M89,87 Q97,90 106,84" stroke="#8a5a45" stroke-width="1.8" fill="none" stroke-linecap="round"/>');
-    } else {
-      head.push('<ellipse cx="97" cy="88" rx="4" ry="5" fill="#7a4a3a" opacity="0.85"/>');
-    }
-
-    if(band.sweat){
-      head.push('<path d="M126,38 q5,7 0,12 q-5,-2 -3,-7 q0,-3 3,-5" fill="#bcd6ea" opacity="0.85"/>');
-    }
-
-    // Head assembly scales down as one unit, pivoted at the neck (97,102) so
-    // the body/collar position doesn't shift — this is what actually fixes
-    // the head-to-body ratio rather than the old fixed r=42 circle.
-    parts.push('<g transform="translate(97,102) scale(0.8) translate(-97,-102)">' + head.join('') + '</g>');
-
-    var sparklePts = [[38,30,1.0],[150,50,0.7],[45,90,0.6]];
-    for(var i=0; i<band.sparkles; i++){
-      var sp = sparklePts[i%3], sx=sp[0], sy=sp[1], sc=sp[2];
-      parts.push('<path class="mascot-sparkle" style="animation-delay:'+(i*0.35)+'s" d="M'+sx+','+sy+' l'+(1.6*sc)+','+(4.3*sc)+' l'+(4.3*sc)+','+(1.6*sc)+' l'+(-4.3*sc)+','+(1.6*sc)+' l'+(-1.6*sc)+','+(4.3*sc)+' l'+(-1.6*sc)+','+(-4.3*sc)+' l'+(-4.3*sc)+','+(-1.6*sc)+' l'+(4.3*sc)+','+(-1.6*sc)+' Z" fill="'+color+'" opacity="0.75"/>');
-    }
-
-    // Held item — the one silhouette element unique to each class. Every
-    // weapon (everything but the mage's small orb) is sized to roughly span
-    // the avatar's own height (viewBox is 200x220), so it reads as an actual
-    // weapon rather than an accessory.
-    var orb = [];
-    if(classId === 'ranger'){
-      var bowTop = 8, bowBot = 204, bowMid = (bowTop+bowBot)/2, bowBulge = 30;
-      orb.push('<path d="M'+hx+','+bowTop+' Q'+(hx+bowBulge)+','+bowMid+' '+hx+','+bowBot+'" stroke="'+HAIR+'" stroke-width="4" fill="none" stroke-linecap="round"/>');
-      orb.push('<path d="M'+(hx-1)+','+bowTop+' L'+(hx-1)+','+bowBot+'" stroke="'+SHIRT+'" stroke-width="1.2"/>');
-      orb.push('<path d="M'+(hx-1)+','+hy+' L'+(hx+34)+','+hy+'" stroke="'+HAIR_HI+'" stroke-width="1.5"/>');
-      orb.push('<path d="M'+(hx+34)+','+hy+' L'+(hx+27)+','+(hy-3)+' L'+(hx+27)+','+(hy+3)+' Z" fill="'+SHIRT+'"/>');
-      orb.push('<path d="M'+(hx-1)+','+hy+' l-6,-4 M'+(hx-1)+','+hy+' l-6,4" stroke="'+SHIRT+'" stroke-width="1.2" stroke-linecap="round"/>');
-    } else if(classId === 'knight'){
-      var bladeTip = 15, bladeLen = 150, bladeBase = bladeTip + bladeLen, guardY = bladeBase, gripBot = guardY + 22, pommelY = gripBot + 3;
-      orb.push('<path d="M'+hx+','+bladeTip+' L'+(hx+4)+','+(bladeTip+14)+' L'+(hx+4)+','+bladeBase+' L'+(hx-4)+','+bladeBase+' L'+(hx-4)+','+(bladeTip+14)+' Z" fill="'+SHIRT+'"/>');
-      orb.push('<path d="M'+hx+','+(bladeTip+16)+' L'+hx+','+(bladeBase-4)+'" stroke="'+HAIR_HI+'" stroke-width="1" opacity="0.6"/>');
-      orb.push('<rect x="'+(hx-14)+'" y="'+guardY+'" width="28" height="5" rx="1.5" fill="'+HAIR+'"/>');
-      orb.push('<rect x="'+(hx-2.5)+'" y="'+(guardY+5)+'" width="5" height="'+(gripBot-guardY-5)+'" fill="'+HAIR_HI+'"/>');
-      orb.push('<circle cx="'+hx+'" cy="'+pommelY+'" r="5" fill="'+HAIR+'"/>');
-      // Smaller shield on the idle hand, sized well under the sword.
-      orb.push('<path d="M58,124 L72,133 L72,158 L58,173 L44,158 L44,133 Z" fill="'+HAIR+'" stroke="'+HAIR_HI+'" stroke-width="1.5"/>');
-      orb.push('<path d="M58,131 L58,164" stroke="'+SHIRT+'" stroke-width="2.5" stroke-linecap="round"/>');
-      orb.push('<path d="M47,148 L69,148" stroke="'+SHIRT+'" stroke-width="2.5" stroke-linecap="round"/>');
-    } else if(classId === 'demon'){
-      var lanceTip = 2, lanceShaftTop = 30, lanceShaftBot = 200;
-      orb.push('<path d="M'+hx+','+lanceTip+' L'+(hx+9)+','+lanceShaftTop+' L'+(hx-9)+','+lanceShaftTop+' Z" fill="'+SHIRT+'" filter="url(#'+band.glowF+uid+')"/>');
-      orb.push('<path d="M'+hx+',8 L'+(hx+4)+','+lanceShaftTop+' L'+(hx-4)+','+lanceShaftTop+' Z" fill="#ffe9c4" opacity="0.85"/>');
-      orb.push('<rect x="'+(hx-2.5)+'" y="'+lanceShaftTop+'" width="5" height="'+(lanceShaftBot-lanceShaftTop)+'" fill="'+HAIR+'"/>');
-      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="7" fill="none" stroke="'+HAIR_HI+'" stroke-width="2.5"/>');
-      orb.push('<rect x="'+(hx-3.5)+'" y="'+lanceShaftBot+'" width="7" height="8" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'dwarf'){
-      var axeShaftTop = 22, axeShaftBot = 204;
-      orb.push('<rect x="'+(hx-2.5)+'" y="'+axeShaftTop+'" width="5" height="'+(axeShaftBot-axeShaftTop)+'" fill="'+HAIR+'"/>');
-      orb.push('<path d="M'+hx+','+axeShaftTop+' C'+(hx+34)+','+(axeShaftTop-8)+' '+(hx+38)+','+(axeShaftTop+38)+' '+hx+','+(axeShaftTop+46)+' C'+(hx+16)+','+(axeShaftTop+36)+' '+(hx+16)+','+(axeShaftTop+8)+' '+hx+','+axeShaftTop+' Z" fill="'+SHIRT+'" stroke="'+HAIR_HI+'" stroke-width="1"/>');
-      orb.push('<path d="M'+hx+','+(axeShaftTop+10)+' L'+(hx-15)+','+(axeShaftTop+18)+' L'+hx+','+(axeShaftTop+26)+' Z" fill="'+HAIR_HI+'"/>');
-    } else if(classId === 'murloc'){
-      var forkShaftTop = 34, forkShaftBot = 204;
-      orb.push('<rect x="'+(hx-2.5)+'" y="'+forkShaftTop+'" width="5" height="'+(forkShaftBot-forkShaftTop)+'" fill="'+HAIR+'"/>');
-      orb.push('<rect x="'+(hx-10)+'" y="'+(forkShaftTop-3)+'" width="20" height="4" rx="1" fill="'+HAIR_HI+'"/>');
-      orb.push('<path d="M'+hx+','+forkShaftTop+' L'+hx+',4" stroke="'+SHIRT+'" stroke-width="3.5" stroke-linecap="round"/>');
-      orb.push('<path d="M'+(hx-7)+','+forkShaftTop+' Q'+(hx-9)+',18 '+(hx-9)+',4" stroke="'+SHIRT+'" stroke-width="3.5" fill="none" stroke-linecap="round"/>');
-      orb.push('<path d="M'+(hx+7)+','+forkShaftTop+' Q'+(hx+9)+',18 '+(hx+9)+',4" stroke="'+SHIRT+'" stroke-width="3.5" fill="none" stroke-linecap="round"/>');
-    } else {
-      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="6" fill="'+color+'" opacity="0.9" filter="url(#'+band.glowF+uid+')"/>');
-      orb.push('<circle cx="'+hx+'" cy="'+hy+'" r="2.4" fill="#ffffff"/>');
-      orb.push('<path d="M'+hx+','+(hy-16)+' l1.6,5 l5,1.6 l-5,1.6 l-1.6,5 l-1.6,-5 l-5,-1.6 l5,-1.6 Z" fill="'+color+'" opacity="0.85"/>');
-      orb.push('<path d="M'+(hx+16)+','+(hy+4)+' l1.2,3.6 l3.6,1.2 l-3.6,1.2 l-1.2,3.6 l-1.2,-3.6 l-3.6,-1.2 l3.6,-1.2 Z" fill="'+color+'" opacity="0.7"/>');
-    }
-    // Only the mage's magical orb pulses — a sword/axe/lance/bow/pitchfork
-    // shouldn't visually throb, so weapons get a plain, unanimated group.
-    parts.push('<g class="'+(classId==='mage' ? 'mascot-orb' : 'mascot-item')+'">' + orb.join('') + '</g>');
 
     return (
       '<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">' +
         '<defs>' +
-          '<filter id="glow'+uid+'" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-          '<filter id="bigglow'+uid+'" x="-160%" y="-160%" width="420%" height="420%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
-          '<radialGradient id="spot'+uid+'" cx="50%" cy="55%" r="55%">' +
-            '<stop offset="0%" stop-color="'+color+'" stop-opacity="0.25"/>' +
-            '<stop offset="45%" stop-color="'+color+'" stop-opacity="0.08"/>' +
+          '<filter id="eyeglow'+uid+'" x="-150%" y="-150%" width="400%" height="400%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+          '<radialGradient id="spot'+uid+'" cx="50%" cy="50%" r="55%">' +
+            '<stop offset="0%" stop-color="'+color+'" stop-opacity="0.22"/>' +
             '<stop offset="100%" stop-color="'+color+'" stop-opacity="0"/>' +
           '</radialGradient>' +
-          '<linearGradient id="hairGrad'+uid+'" x1="0%" y1="0%" x2="100%" y2="100%">' +
-            '<stop offset="0%" stop-color="'+HAIR_HI+'"/>' +
-            '<stop offset="60%" stop-color="'+HAIR+'"/>' +
-            '<stop offset="100%" stop-color="'+HAIR+'"/>' +
-          '</linearGradient>' +
-          '<linearGradient id="jacketGrad'+uid+'" x1="20%" y1="0%" x2="80%" y2="100%">' +
+          '<linearGradient id="jacketGrad'+uid+'" x1="0%" y1="0%" x2="0%" y2="100%">' +
             '<stop offset="0%" stop-color="'+JACKET+'"/>' +
-            '<stop offset="70%" stop-color="'+JACKET+'"/>' +
             '<stop offset="100%" stop-color="'+JACKET_DARK+'"/>' +
           '</linearGradient>' +
-          '<radialGradient id="irisGrad'+uid+'" cx="35%" cy="30%" r="75%">' +
-            '<stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>' +
-            '<stop offset="30%" stop-color="'+color+'"/>' +
-            '<stop offset="100%" stop-color="'+color+'"/>' +
+          '<linearGradient id="capeGrad'+uid+'" x1="0%" y1="0%" x2="0%" y2="100%">' +
+            '<stop offset="0%" stop-color="'+JACKET_DARK+'"/>' +
+            '<stop offset="100%" stop-color="#050607"/>' +
+          '</linearGradient>' +
+          '<radialGradient id="hoodGrad'+uid+'" cx="50%" cy="35%" r="65%">' +
+            '<stop offset="0%" stop-color="'+JACKET_DARK+'"/>' +
+            '<stop offset="100%" stop-color="#060708"/>' +
           '</radialGradient>' +
         '</defs>' +
         bg.join('') +
@@ -1287,6 +1265,7 @@
       '</svg>'
     );
   }
+
 
   // A day's quest checklist, evaluated against that day's actual data.
   function questsForDay(dateStr){
@@ -1427,6 +1406,8 @@
     var todaysQuests = questsForDay(todayStr());
     var avatar = getAvatarChoice();
     var bulk = bodyBulkFactor() * (AVATAR_CLASSES[avatar.cls].bulkBase || 1);
+    var justLeveledUp = lastSeenLevel !== null && lvl.level > lastSeenLevel;
+    lastSeenLevel = lvl.level;
 
     var barsHtml = bars.map(function(b){
       return '<div class="stat-bar-row"><span class="stat-bar-label">'+b.label+'</span>' +
@@ -1442,7 +1423,7 @@
     var flavor = phys.days === 0 ? 'Log a few days of food and exercise to bring your character online.' : label.flavor;
 
     return (
-      '<div class="status-panel" style="--status-color:'+color+'">' +
+      '<div class="status-panel'+(justLeveledUp?' level-up-flash':'')+'" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
             '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, bulk, avatar.cls, avatar.idx) + '</button>' +
@@ -2248,6 +2229,7 @@
   // ---------------- init ----------------
   (async function init(){
     await loadState();
+    lastSeenLevel = levelInfo().level;
     render();
   })();
 })();
