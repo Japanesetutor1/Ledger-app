@@ -558,6 +558,42 @@ adapting task per exercise — see `WORKOUT_EXERCISES`,
   `WORKOUT_DAY_TYPES` and `WORKOUT_DAY_LABELS`, and give it a row in
   `WORKOUT_TIER_START_REPS` for the assessment to size it correctly.
 
+## Post-workout motivational quote
+
+`MOTIVATIONAL_QUOTES` (~200 lines) is a bank shown next to the avatar
+(`workout-quote-bubble`, wired into `renderStatusPanel`) after a workout
+is completed for the day.
+
+- **Deliberately original and unattributed — not sourced from or
+  attributed to real people.** A large share of "gym quotes" that
+  circulate online are actually misattributed to athletes/celebrities
+  who never said them. Generating volume here by inventing fake
+  attributions, or by copying unverified quote lists, would just add
+  more of that. If asked to grow this bank, keep writing original
+  unattributed lines rather than attributing anything to a real named
+  person unless it's a quote you can actually verify — and even then,
+  reproducing more than a short phrase of someone else's exact words
+  runs into the same copyright limits as everywhere else in this app.
+  This was explicitly scoped down from "1000 quotes" for this reason —
+  200 is what got written this pass; more can be added later the same
+  way (original, unattributed) rather than by relaxing that rule to
+  hit a bigger number faster.
+- `pickMotivationalQuote()` picks one at random; `App.completeWorkoutTask`
+  snapshots the pick onto `logs[date].workoutTask.quote` at completion
+  time, same reasoning as the exercise snapshot elsewhere in this
+  system — fixed once assigned, not re-rolled on every render.
+  `todaysWorkoutQuote()` reads it back for display, gated on *today's*
+  `workoutTask.done` specifically (not whatever `currentDate` is
+  navigated to) — this is a same-day motivational beat, not a
+  historical replay feature.
+- The bubble's connector arrow points up-left, not sideways — on the
+  narrow mobile widths this app is mostly used at, `.status-top`'s
+  flex-wrap puts the bubble on its own row below the avatar rather
+  than beside it, so an arrow pointing up toward the avatar reads
+  correctly in the layout that actually occurs in practice; a
+  sideways arrow (the first attempt) pointed at empty space once it
+  wrapped.
+
 ## Gamification layer
 
 - XP/Level and "Today's quests" are **fully derived** from `logs` on every

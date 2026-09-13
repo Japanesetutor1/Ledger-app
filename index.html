@@ -431,6 +431,16 @@
   .status-mascot:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   .status-mascot svg{ width:100%; height:100%; display:block; pointer-events:none; }
   .status-mascot-hint{ font-size:10px; color:var(--text-faint); }
+  .workout-quote-bubble{
+    position:relative; background:var(--surface-2); border:1px solid var(--gold); border-radius:var(--radius);
+    padding:12px 14px 10px; max-width:280px; flex:1 1 200px; margin-top:6px;
+  }
+  .workout-quote-bubble::before{
+    content:''; position:absolute; left:20px; top:-7px; width:12px; height:12px;
+    background:var(--surface-2); border-left:1px solid var(--gold); border-top:1px solid var(--gold);
+    transform:rotate(45deg);
+  }
+  .workout-quote-text{ font-size:12.5px; font-style:italic; color:var(--text); line-height:1.5; }
   .mascot-portrait{
     position:relative; width:100%; height:100%; border-radius:var(--radius);
     overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
@@ -2100,6 +2110,225 @@
   var WORKOUT_START_REPS = 10;
   var WORKOUT_LEVEL_UP_AT = 100;
 
+  // ---------------- post-workout motivational quotes ----------------
+  // Deliberately original and unattributed, not sourced from real people.
+  // A huge share of circulating "gym quotes" online are misattributed to
+  // real athletes/celebrities who never said them -- generating volume
+  // here by inventing fake attributions (or copying unverified lists)
+  // would just add to that. One picked at random gets snapshotted onto
+  // logs[date].workoutTask.quote when a workout is completed, so it's
+  // fixed for that day rather than re-rolling on every render.
+  var MOTIVATIONAL_QUOTES = [
+    "The last rep is the only one that counts.",
+    "Your body can do it. It's your mind you have to convince.",
+    "Sweat now, shine later.",
+    "Strong is a decision you make in the first five reps.",
+    "The weight doesn't care how you feel today.",
+    "Every set you finish is proof you're not done yet.",
+    "Discomfort today is armor tomorrow.",
+    "You don't find strength. You build it, one rep at a time.",
+    "The gym doesn't lie. Neither should your effort.",
+    "Nobody regrets a workout after it's done.",
+    "Push until your excuses run out of breath.",
+    "The rep you want to skip is the one you need most.",
+    "Muscles remember what you're willing to forget.",
+    "You're one workout away from a better mood.",
+    "Show up tired. Leave proud.",
+    "Small weights, honest effort, real results.",
+    "The floor doesn't care how many times you've fallen — only that you get back up.",
+    "Progress hides inside the reps you almost skipped.",
+    "Today's soreness is yesterday's effort saying hello.",
+    "You don't have to be fast. You have to be relentless.",
+    "The bar doesn't get lighter. You get stronger.",
+    "Every drop of sweat is a vote for the person you're becoming.",
+    "Consistency lifts more than motivation ever will.",
+    "Train like the goal is inevitable.",
+    "One more rep than yesterday is still a win.",
+    "Your only competition is the version of you that quit early.",
+    "Strength is built in the reps nobody sees.",
+    "The workout doesn't start until you want to stop.",
+    "Show the weight who's really in charge.",
+    "Effort compounds. So does avoidance.",
+    "You didn't come this far to only come this far.",
+    "Some days you don't feel strong. You just decide to be.",
+    "The hardest part is the door. You're already through it.",
+    "There's no elevator to strong. Just the stairs, one rep at a time.",
+    "Discipline looks a lot like showing up when you don't feel like it.",
+    "Today's rep count doesn't lie to tomorrow's you.",
+    "You're not tired. You're just close to better.",
+    "Real strength is quiet. It just keeps showing up.",
+    "A hard set today is a lighter one next month.",
+    "Chase the pump, keep the discipline.",
+    "Discipline is choosing what you want most over what you want now.",
+    "Motivation starts it. Discipline finishes it.",
+    "Your mind will quit a thousand times before your body does.",
+    "Comfort is a loan. It always charges interest.",
+    "The mind gives up first every single time — don't listen to it today.",
+    "Hard is not the same as impossible.",
+    "You don't have to feel ready. You just have to start.",
+    "Willpower is a muscle too — this is you training it.",
+    "Discomfort is just growth wearing a disguise.",
+    "The version of you that gives up isn't the one you're trying to become.",
+    "Toughness is a habit built in small, unglamorous moments.",
+    "You are stronger than the excuse you almost used.",
+    "Doubt kills more progress than failure ever could.",
+    "The mind quits first. Outlast it.",
+    "Calm is a skill. Practice it under load.",
+    "Every hard choice today is a shortcut for tomorrow.",
+    "You don't need to want to. You just need to do it anyway.",
+    "Resilience isn't built in comfort — it's built right here.",
+    "Control what you can: your effort, your attitude, your next move.",
+    "The obstacle isn't in your way. It is the way.",
+    "Feelings are weather. Discipline is climate.",
+    "You can be in a bad mood and still show up. That's the whole game.",
+    "Nobody's mind wants to work out. Do it anyway.",
+    "Grit is just patience with your teeth gritted.",
+    "The strongest muscle you'll ever train is the one that says \"again.\"",
+    "You're not behind. You're building.",
+    "Every rep you finish when you wanted to stop rewires what you believe about yourself.",
+    "Confidence is a byproduct of promises kept to yourself.",
+    "Quitting is loud in the moment and quiet forever after — the opposite is true too.",
+    "You don't rise to your goals. You fall to your habits. Build better ones.",
+    "The days you don't want to are the days that count double.",
+    "Pain is information, not a stop sign.",
+    "Be the kind of person who does it anyway.",
+    "Your future self is watching what you do right now.",
+    "Discipline is remembering what you want most, not what you want right now.",
+    "Nothing worth having ever got easier because you avoided it.",
+    "You are the only one keeping score that actually matters.",
+    "Hard days build the parts of you that easy days can't reach.",
+    "The struggle is the whole point, not the interruption of it.",
+    "Show up especially on the days you don't want to.",
+    "Consistency turns average effort into extraordinary results.",
+    "Small and steady beats big and occasional, every time.",
+    "You don't need a better plan. You need to repeat this one.",
+    "Streaks aren't magic. They're just promises kept daily.",
+    "The compound interest of showing up is invisible until it isn't.",
+    "One workout won't change you. A thousand small ones will.",
+    "Boring, consistent effort outperforms brilliant, occasional effort.",
+    "The habit is the goal. The results are just proof.",
+    "You're not chasing perfect. You're chasing today, and then tomorrow.",
+    "Discipline is a series of small votes for who you want to be.",
+    "The days blur together, but the direction never lies.",
+    "Show up when it's easy so you know how to show up when it's not.",
+    "You're building a person, not just a body.",
+    "The plan works. It just needs you to keep doing it.",
+    "Every rep is a brick. Nobody sees the wall until it's built.",
+    "It's not about today's workout. It's about never missing twice.",
+    "Habits are just decisions you no longer have to make.",
+    "The magic isn't in the workout. It's in doing it again tomorrow.",
+    "You don't need motivation on day 100 — you need it on day two.",
+    "Keep the streak. The streak keeps you.",
+    "What you repeat, you become.",
+    "Small reps, repeated relentlessly, build unshakable things.",
+    "Trust the process by actually doing the process.",
+    "There's no finish line here, just the next rep.",
+    "The days you barely remember are the ones that changed you.",
+    "You're not starting over. You're picking up exactly where you left off.",
+    "Progress is quiet and slow until, suddenly, it isn't.",
+    "This rep doesn't have to be impressive. It just has to happen.",
+    "Show up for the version of you that hasn't arrived yet.",
+    "Every day you show up is a day you didn't quit.",
+    "A setback is just a setup for a better comeback.",
+    "You've survived every hard day so far. That's a perfect record.",
+    "Falling behind isn't falling out — get back in.",
+    "The comeback is always stronger than the setback.",
+    "You don't have to be perfect. You have to be persistent.",
+    "One bad day doesn't erase a hundred good ones.",
+    "Missed a day? That's one. Not a pattern.",
+    "Failure is just data. Use it and move.",
+    "You're allowed to start again as many times as it takes.",
+    "The only real failure is the workout you never came back for.",
+    "Rest if you must, but don't you quit.",
+    "You didn't lose progress. You paused it. Now unpause it.",
+    "Every champion has a losing streak in their story.",
+    "Bad workouts still count. Showing up is the win.",
+    "You're not behind schedule. There is no schedule but the next step.",
+    "The scoreboard doesn't matter as much as the fact that you're still playing.",
+    "Struggling doesn't mean you're doing it wrong. It means you're doing it.",
+    "Slow progress is still progress. Stopped progress is the only real loss.",
+    "You get to decide what a bad day means for tomorrow.",
+    "The rep that goes badly still built something.",
+    "Nobody's strongest day was their first day.",
+    "You're allowed to be a beginner at this for as long as it takes.",
+    "This is supposed to be hard. That's how you know it's working.",
+    "Some days you win the workout. Other days the workout teaches you something. Both count.",
+    "You can be discouraged and still show up. Both things can be true.",
+    "The version of you a year from now was built on days exactly like this.",
+    "Setbacks are just plot, not the ending.",
+    "You're not starting from zero. You're starting from experience.",
+    "It's supposed to feel hard sometimes. Hard is the price of different.",
+    "Whatever today looked like, tomorrow is still unwritten.",
+    "Growth feels like discomfort wearing a disguise.",
+    "You are one decision away from a completely different trajectory.",
+    "Become the person your goals require.",
+    "The best time to start was earlier. The next best time is now.",
+    "You're not competing with anyone. You're completing yourself.",
+    "Improvement is a decision made daily, not a destination reached once.",
+    "Be stubborn about your goals and flexible about your methods.",
+    "You're allowed to be proud of progress that isn't finished yet.",
+    "Change is just a thousand small choices wearing a trench coat.",
+    "The person you're becoming is built in moments exactly like this one.",
+    "Growth doesn't ask permission. It asks for reps.",
+    "You don't have to see the whole staircase. Just take the next step.",
+    "Better is a direction, not a destination.",
+    "You are the sum of what you choose to repeat.",
+    "The only way out of average is through effort.",
+    "Nobody arrives at their best self. They build it, rep by rep.",
+    "You're not too late. You're exactly on time for your own story.",
+    "Invest in yourself. That return is the one that never crashes.",
+    "You don't need permission to start improving today.",
+    "Every version of you got you here. Now build the next one.",
+    "Discomfort now, capability forever.",
+    "Progress doesn't care about your mood. Show up anyway.",
+    "You're allowed to want more for yourself and work for it quietly.",
+    "The gap between who you are and who you want to be is closed one rep at a time.",
+    "You can't pour from a version of yourself that never trained for it.",
+    "Growth is uncomfortable by design — that's how you know it's real.",
+    "The best investment you'll ever make is in the person doing the reps.",
+    "You are always one choice away from a different pattern.",
+    "Self-improvement isn't loud. It's just consistent.",
+    "The work you do when no one's watching is the work that changes you.",
+    "Be someone your future self thanks.",
+    "You don't have to love the process. You just have to trust it.",
+    "Improvement compounds quietly until it doesn't.",
+    "Every better version of you started as an uncomfortable decision.",
+    "You're not chasing motivation. You're building identity.",
+    "The reps are just proof you meant what you said.",
+    "What you tolerate, you become. What you challenge, you outgrow.",
+    "You are capable of more than today's mood is telling you.",
+    "The only person you owe progress to is the one in the mirror.",
+    "Keep going. The person you're building is worth it.",
+    "You showed up. That's the whole game, most days.",
+    "Strong body, stronger mind — you just trained both.",
+    "That was today's deposit into a much bigger investment.",
+    "However that felt, you're better for having done it.",
+    "The hardest part is over. You already started.",
+    "That workout is proof, not just practice.",
+    "Nobody can take today's effort away from you.",
+    "You showed your body what you expect from it.",
+    "This is what discipline actually looks like — not motivation, just repetition.",
+    "You just did something your excuses said you couldn't.",
+    "That's one more rep than the version of you that almost skipped today.",
+    "Whatever tomorrow brings, today you did the work.",
+    "You trained today. Some people are still deciding to start.",
+    "That effort just became part of your foundation.",
+    "You kept a promise to yourself today. That matters more than the numbers.",
+    "This is how strong people are made — exactly like this, one workout at a time.",
+    "You're proof that showing up beats waiting to feel like it.",
+    "Log it, remember it, and do it again.",
+    "That's today handled. Tomorrow gets its own rep.",
+    "Well done. Now go be proud of it."
+  ];
+  function pickMotivationalQuote(){
+    return MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+  }
+  function todaysWorkoutQuote(){
+    var day = logs[todayStr()];
+    if(day && day.workoutTask && day.workoutTask.done && day.workoutTask.quote) return day.workoutTask.quote;
+    return null;
+  }
+
   function exercisesForDayType(dayType){
     return Object.keys(WORKOUT_EXERCISES).filter(function(k){ return WORKOUT_EXERCISES[k].dayType === dayType; });
   }
@@ -2454,6 +2683,10 @@
     }).join('');
 
     var flavor = phys.days === 0 ? 'Log a few days of food and exercise to bring your character online.' : label.flavor;
+    var workoutQuote = todaysWorkoutQuote();
+    var quoteHtml = workoutQuote
+      ? '<div class="workout-quote-bubble"><span class="workout-quote-text">&ldquo;' + esc(workoutQuote) + '&rdquo;</span></div>'
+      : '';
 
     return (
       '<div class="status-panel" style="--status-color:'+color+'">' +
@@ -2462,6 +2695,7 @@
             '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotDisplay(phys.score, avatar.cls, avatar.idx) + '</button>' +
             '<span class="status-mascot-hint">Customize</span>' +
           '</div>' +
+          quoteHtml +
           '<div class="status-main">' +
             '<div class="status-row1">' +
               '<div class="status-titles"><span class="status-level num">Lv.'+lvl.level+'</span><span class="status-title-word">'+lvl.title+'</span></div>' +
@@ -3449,7 +3683,7 @@
       day.exercise.push({ id: uid(), name: def.variants[cur.variantIndex] + ' x' + cur.reps, cals: cals, estimated: true });
       snapshot[key] = { variant: def.variants[cur.variantIndex], reps: cur.reps };
     });
-    day.workoutTask = { done: true, feedback: feedback, dayType: dayType, snapshot: snapshot };
+    day.workoutTask = { done: true, feedback: feedback, dayType: dayType, snapshot: snapshot, quote: pickMotivationalQuote() };
 
     // Advance (or hold) each exercise's target for next time, based on
     // how today's assigned reps felt -- only the exercises actually
