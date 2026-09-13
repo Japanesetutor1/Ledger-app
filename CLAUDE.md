@@ -462,6 +462,56 @@ was rebuilt to actually simulate it:
   against the dark panel background before calling it done (the demon's
   horns and wings needed a bone/skin-tinted fix for exactly this reason).
 
+## Adaptive workout progression
+
+Replaces the old static "Get a workout in" quest with a specific,
+adapting task per exercise (currently push-ups and squats) — see
+`WORKOUT_EXERCISES`, `ensureWorkoutProgress`, `advanceWorkoutStep`,
+`workoutTaskName`, and the `renderWorkoutTask` card.
+
+- **State is split two ways on purpose.** `settings.workoutProgress`
+  (per profile) holds the *live, forward-looking* target — what reps/
+  variant to assign next. `logs[date].workoutTask` snapshots what was
+  *actually* assigned and completed on that specific day. Always read
+  the snapshot for historical days (`questsForDay` does this already —
+  see its `workoutName` logic) rather than the live progress state,
+  or viewing a past day after the target has since advanced will
+  misrepresent what that day's task actually was.
+- **Progression rule:** "hard" holds the rep target exactly steady.
+  "Easy" raises it 25-40% (randomized within that range each time, not
+  a fixed percentage — `advanceWorkoutStep`), rounded to the nearest 5,
+  with a guaranteed minimum +5 bump so rounding can never silently
+  leave the target unchanged. Reaching or crossing 100 reps triggers a
+  level-up: move to the next harder variation in that exercise's
+  `variants` array and reset to `WORKOUT_START_REPS` (10) — don't just
+  cap at 100 reps of the same movement, that's the whole point of the
+  feature per how it was specified. Once at the last variant in the
+  array, further "easy" answers cap at 100 reps of that hardest
+  variation rather than erroring or overflowing — verified via a
+  40-iteration forced-max-growth simulation.
+- **Variant chains start at the plain/standard exercise, not an easier
+  pre-variant.** `variants[0]` for push-ups is "Push-ups" itself (not
+  "Knee push-ups") because day one was explicitly specified as "10
+  push-ups and 10 squats" — don't insert an easier warm-up variant
+  before index 0, that would silently contradict the spec.
+- **Marking the task done also logs real exercise entries** (with a
+  rough calorie estimate scaled by bodyweight via `calsPerRepAt70kg` —
+  no AI call involved, same reasoning as the nutrient suggestions: this
+  needs to work in the deployed build, not just inside an artifact) —
+  it's not a separate gamified layer disconnected from the actual
+  calorie tracking, it feeds the same `logs[date].exercise` array
+  everything else does.
+- **Only tracked/completable for today** (`currentDate === todayStr()`)
+  — completing it retroactively for a past day would let someone
+  navigate back and forth to rapidly farm level-ups, since completion
+  mutates the live, forward-looking progression state. Past days with
+  no snapshot just show the live current target as a preview, read-only.
+- If asked to add more exercises later, add an entry to
+  `WORKOUT_EXERCISES` with a `variants` array (index 0 = the plain
+  starting exercise) and a `calsPerRepAt70kg` estimate — the rest
+  (progression, leveling, snapshotting, quest integration) is generic
+  and doesn't need touching per-exercise.
+
 ## Gamification layer
 
 - XP/Level and "Today's quests" are **fully derived** from `logs` on every

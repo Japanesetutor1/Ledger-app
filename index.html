@@ -273,6 +273,28 @@
   /* ---------- Trend ---------- */
   .trend{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
   .nutrient-coverage{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
+  .workout-task{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:18px; }
+  .workout-task-head{ margin-bottom:10px; }
+  .workout-task-head h2{ font-size:13px; margin:0; font-weight:600; }
+  .workout-task-target{ font-size:15px; font-weight:600; color:var(--text); margin-bottom:10px; }
+  .workout-task-target-done{ color:var(--text-dim); font-weight:500; }
+  .workout-task-feedback-tag{ color:var(--credit); font-size:12px; }
+  .workout-task-btn{
+    width:100%; background:var(--gold); color:#1a1508; border:none; border-radius:var(--radius);
+    padding:10px; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .workout-feedback-prompt{ font-size:12.5px; color:var(--text-dim); margin-bottom:8px; }
+  .workout-feedback-actions{ display:flex; gap:8px; }
+  .workout-feedback-btn{
+    flex:1; border-radius:var(--radius); padding:10px 8px; font-size:12.5px; font-weight:600; cursor:pointer; border:1px solid var(--border);
+  }
+  .workout-feedback-btn.easy{ background:var(--credit-dim); color:var(--credit); border-color:var(--credit-dim); }
+  .workout-feedback-btn.hard{ background:var(--debit-dim); color:var(--debit); border-color:var(--debit-dim); }
+  .workout-feedback-btn:hover{ filter:brightness(1.15); }
+  .workout-task-cancel{
+    display:block; width:100%; margin-top:8px; background:none; border:none; color:var(--text-faint);
+    font-size:11.5px; padding:4px; cursor:pointer;
+  }
   .nutrient-coverage-head{ margin-bottom:12px; }
   .nutrient-coverage-head h2{ font-size:13px; margin:0; font-weight:600; }
   .nutrient-cov-row{ display:flex; align-items:center; gap:10px; padding:5px 0; }
@@ -1059,6 +1081,7 @@
   var dbSearchQuery = '';
   var nutrientSuggestions = null; // null = panel closed; [] or [...] = open with results
   var nutrientSuggestFocus = null; // which nutrient a targeted suggestion call was for, if any
+  var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
 
   // ---------------- nutrient-dense suggestions ----------------
   // A small curated list of whole foods that are genuinely rich sources of
@@ -1983,6 +2006,79 @@
   }
 
   // A day's quest checklist, evaluated against that day's actual data.
+  // ---------------- adaptive workout progression ----------------
+  // Instead of a generic "log any exercise" quest, this assigns a
+  // specific rep target per exercise that adapts to how the person
+  // actually felt doing it: easy raises the target 25-40%, hard holds it
+  // steady, and reaching 100 reps "levels up" into a harder variation of
+  // the same movement (reset back to a manageable rep count). Progress
+  // lives in settings.workoutProgress (per profile, persists across
+  // days); what was actually assigned and completed on a given day is
+  // snapshotted onto logs[date].workoutTask so history doesn't shift
+  // retroactively when the live target changes later.
+  var WORKOUT_EXERCISES = {
+    pushups: {
+      label: 'push-ups',
+      variants: ['Push-ups', 'Diamond push-ups', 'Archer push-ups', 'One-arm push-up progressions'],
+      calsPerRepAt70kg: 0.40
+    },
+    squats: {
+      label: 'squats',
+      variants: ['Squats', 'Jump squats', 'Bulgarian split squats', 'Pistol squats'],
+      calsPerRepAt70kg: 0.32
+    }
+  };
+  var WORKOUT_START_REPS = 10;
+  var WORKOUT_LEVEL_UP_AT = 100;
+
+  function ensureWorkoutProgress(){
+    if(!settings.workoutProgress) settings.workoutProgress = {};
+    Object.keys(WORKOUT_EXERCISES).forEach(function(key){
+      if(!settings.workoutProgress[key]){
+        settings.workoutProgress[key] = { variantIndex: 0, reps: WORKOUT_START_REPS };
+      }
+    });
+    return settings.workoutProgress;
+  }
+
+  function workoutTaskName(){
+    var progress = ensureWorkoutProgress();
+    var parts = Object.keys(WORKOUT_EXERCISES).map(function(key){
+      var def = WORKOUT_EXERCISES[key];
+      var cur = progress[key];
+      return cur.reps + ' ' + def.variants[cur.variantIndex].toLowerCase();
+    });
+    return 'Do ' + parts.join(' + ');
+  }
+
+  function workoutExerciseCalories(key, reps){
+    var def = WORKOUT_EXERCISES[key];
+    var weight = settings.weightKg || 70;
+    return Math.round(def.calsPerRepAt70kg * reps * (weight / 70));
+  }
+
+  // feedback is 'easy' or 'hard'. Reps are rounded to the nearest 5 for a
+  // cleaner target number, with a guaranteed minimum bump on "easy" so
+  // rounding never silently leaves the target unchanged.
+  function advanceWorkoutStep(current, key, feedback){
+    var def = WORKOUT_EXERCISES[key];
+    if(feedback === 'hard'){
+      return { variantIndex: current.variantIndex, reps: current.reps };
+    }
+    var factor = 1.25 + Math.random() * 0.15; // 25%-40% increase
+    var raised = Math.round((current.reps * factor) / 5) * 5;
+    if(raised < current.reps + 5) raised = current.reps + 5;
+    if(raised >= WORKOUT_LEVEL_UP_AT){
+      var nextIdx = current.variantIndex + 1;
+      if(nextIdx >= def.variants.length){
+        // Already at the hardest variation -- cap at 100, nowhere harder to go.
+        return { variantIndex: current.variantIndex, reps: WORKOUT_LEVEL_UP_AT };
+      }
+      return { variantIndex: nextIdx, reps: WORKOUT_START_REPS };
+    }
+    return { variantIndex: current.variantIndex, reps: raised };
+  }
+
   function questsForDay(dateStr){
     var t = dayTotals(dateStr);
     var day = logs[dateStr] || { food:[], exercise:[], weight:null };
@@ -1995,9 +2091,22 @@
     } else {
       goalQuest = { name:'Stay within 200 kcal of even', done: t.tracked && Math.abs(t.balance) <= 200, xp: 25 };
     }
+    // Use the snapshot of what was actually assigned/completed on this
+    // specific day if it exists, rather than always showing today's live
+    // target -- otherwise viewing a past day after the target has since
+    // changed (progressed or leveled up) would misrepresent what that
+    // day's task actually was.
+    var workoutName;
+    if(day.workoutTask && day.workoutTask.snapshot){
+      var snap = day.workoutTask.snapshot;
+      workoutName = 'Do ' + Object.keys(snap).map(function(k){ return snap[k].reps + ' ' + snap[k].variant.toLowerCase(); }).join(' + ');
+    } else {
+      workoutName = workoutTaskName();
+    }
+
     return [
       { name:'Log at least two meals', done: (day.food||[]).length >= 2, xp: 10 },
-      { name:'Get a workout in', done: (day.exercise||[]).length >= 1, xp: 15 },
+      { name: workoutName, done: !!(day.workoutTask && day.workoutTask.done), xp: 15 },
       goalQuest,
       { name:'Log today\'s weight', done: day.weight != null, xp: 10 }
     ];
@@ -2162,6 +2271,7 @@
     }
     html += renderDateNav();
     html += renderSummary(t);
+    html += renderWorkoutTask();
     html += renderWeightStrip();
     html += renderHydration();
     html += renderPanels();
@@ -2421,6 +2531,45 @@
     var cum = cumulativeBalance();
     var cls = cum <= 0 ? 'credit' : 'debit'; // negative = net deficit over time = good
     return '<span class="' + cls + '">' + sign(cum) + Math.abs(round(cum)) + '</span>';
+  }
+
+  function renderWorkoutTask(){
+    var progress = ensureWorkoutProgress();
+    var day = logs[currentDate];
+    var isToday = currentDate === todayStr();
+    var taskDoneToday = day && day.workoutTask && day.workoutTask.done;
+
+    var targetLine = Object.keys(WORKOUT_EXERCISES).map(function(key){
+      var def = WORKOUT_EXERCISES[key];
+      var cur = progress[key];
+      return def.variants[cur.variantIndex] + ' &times; ' + cur.reps;
+    }).join(' &nbsp;+&nbsp; ');
+
+    var html = '<div class="workout-task">';
+    html += '<div class="workout-task-head"><h2>Today\'s workout</h2></div>';
+
+    if(taskDoneToday){
+      var snap = day.workoutTask.snapshot;
+      var doneLine = Object.keys(snap).map(function(k){ return esc(snap[k].variant) + ' &times; ' + snap[k].reps; }).join(' + ');
+      html += '<div class="workout-task-target workout-task-target-done">' + doneLine + '</div>';
+      html += '<div class="workout-task-feedback-tag">Completed — felt ' + esc(day.workoutTask.feedback) + '</div>';
+    } else if(!isToday){
+      html += '<div class="workout-task-target">' + targetLine + '</div>';
+      html += '<div class="trend-empty">This task is only tracked for today — jump to today to complete it.</div>';
+    } else if(workoutFeedbackPending){
+      html += '<div class="workout-task-target">' + targetLine + '</div>';
+      html += '<div class="workout-feedback-prompt">How did that feel?</div>';
+      html += '<div class="workout-feedback-actions">' +
+        '<button class="workout-feedback-btn easy" onclick="App.completeWorkoutTask(\'easy\')">Easy — raise it next time</button>' +
+        '<button class="workout-feedback-btn hard" onclick="App.completeWorkoutTask(\'hard\')">Hard — keep it here</button>' +
+      '</div>' +
+      '<button class="workout-task-cancel" onclick="App.cancelWorkoutFeedback()">Cancel</button>';
+    } else {
+      html += '<div class="workout-task-target">' + targetLine + '</div>';
+      html += '<button class="workout-task-btn" onclick="App.startWorkoutFeedback()">Mark today\'s workout done</button>';
+    }
+    html += '</div>';
+    return html;
   }
 
   function renderWeightStrip(){
@@ -3070,6 +3219,42 @@
     day.food.push({ id: uid(), name: item.name, cals: item.cals, estimated: true, nutrients: item.nutrients.slice() });
     await saveLogs();
     nutrientSuggestions = null;
+    render();
+  };
+
+  App.startWorkoutFeedback = function(){
+    workoutFeedbackPending = true;
+    render();
+  };
+
+  App.cancelWorkoutFeedback = function(){
+    workoutFeedbackPending = false;
+    render();
+  };
+
+  App.completeWorkoutTask = async function(feedback){
+    var progress = ensureWorkoutProgress();
+    var day = ensureDay(currentDate);
+    var snapshot = {};
+
+    Object.keys(WORKOUT_EXERCISES).forEach(function(key){
+      var def = WORKOUT_EXERCISES[key];
+      var cur = progress[key];
+      var cals = workoutExerciseCalories(key, cur.reps);
+      day.exercise.push({ id: uid(), name: def.variants[cur.variantIndex] + ' x' + cur.reps, cals: cals, estimated: true });
+      snapshot[key] = { variant: def.variants[cur.variantIndex], reps: cur.reps };
+    });
+    day.workoutTask = { done: true, feedback: feedback, snapshot: snapshot };
+
+    // Advance (or hold) each exercise's target for next time, based on
+    // how today's assigned reps felt.
+    Object.keys(WORKOUT_EXERCISES).forEach(function(key){
+      progress[key] = advanceWorkoutStep(progress[key], key, feedback);
+    });
+
+    workoutFeedbackPending = false;
+    await saveLogs();
+    await saveSettings();
     render();
   };
 
