@@ -327,6 +327,24 @@
   .status-mascot:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   .status-mascot svg{ width:100%; height:100%; display:block; pointer-events:none; }
   .status-mascot-hint{ font-size:10px; color:var(--text-faint); }
+  .mascot-portrait{
+    position:relative; width:100%; height:100%; border-radius:var(--radius);
+    overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
+    transition:box-shadow .5s ease; background:#0e0f14;
+  }
+  .mascot-portrait-img{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top;
+    display:block; pointer-events:none; user-select:none;
+  }
+  .mascot-portrait-blink{ opacity:0; animation:portraitBlink 5.4s ease-in-out infinite; }
+  .avatar-class-thumb .mascot-portrait{ box-shadow:none; }
+  @media (prefers-reduced-motion: reduce){
+    .mascot-portrait-blink{ animation:none; opacity:0; }
+  }
+  @keyframes portraitBlink{
+    0%, 90%, 96%, 100% { opacity:0; }
+    92%, 94% { opacity:1; }
+  }
   .mascot-figure{ transform-box:view-box; transform-origin:center; animation:mascotBob 3.6s ease-in-out infinite; }
   .mascot-eye{ transform-box:fill-box; transform-origin:center; animation:mascotBlink 5.2s ease-in-out infinite; }
   .mascot-sparkle{ transform-box:fill-box; transform-origin:center; animation:mascotTwinkle 1.8s ease-in-out infinite; }
@@ -1089,6 +1107,37 @@
     return { cls: cls, idx: idx };
   }
 
+  // Classes with painted-art (illustrated) portraits instead of the
+  // procedural SVG rig. Each entry needs two frames — eyes-open and
+  // eyes-closed — same pose/framing/lighting, so mascotDisplay() can
+  // crossfade between them for a blink. Drop a class's key from this
+  // object (or leave its "closed" field unset) to fall straight back to
+  // the SVG rig with zero other code changes. Image-avatar classes
+  // intentionally have NO color-scheme variants (see CLAUDE.md) — the
+  // scheme swatch row is hidden for them and reactivity is a color-only
+  // glow keyed off physiqueColor(score), not a pose/art change.
+  var IMAGE_AVATARS = {
+    ranger: { open: 'ranger-open.jpg', closed: 'ranger-closed.jpg' }
+  };
+
+  function mascotDisplay(score, classId, schemeIdx, opts){
+    var art = IMAGE_AVATARS[classId];
+    if(!art || !art.open){
+      return mascotSVG(score, classId, schemeIdx);
+    }
+    opts = opts || {};
+    var glow = physiqueColor(score);
+    var blink = opts.blink !== false && !!art.closed;
+    var sizeClass = opts.small ? ' mascot-portrait-sm' : '';
+    var html = '<div class="mascot-portrait'+sizeClass+'" style="--mascot-glow:'+glow+'">' +
+      '<img class="mascot-portrait-img" src="'+esc(art.open)+'" alt="" draggable="false">';
+    if(blink){
+      html += '<img class="mascot-portrait-img mascot-portrait-blink" src="'+esc(art.closed)+'" alt="" draggable="false">';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function mascotSVG(score, classId, schemeIdx){
     var cdef = AVATAR_CLASSES[classId] || AVATAR_CLASSES.mage;
     if(!classId || !AVATAR_CLASSES[classId]) classId = 'mage';
@@ -1575,7 +1624,7 @@
       '<div class="status-panel" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
-            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotSVG(phys.score, avatar.cls, avatar.idx) + '</button>' +
+            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotDisplay(phys.score, avatar.cls, avatar.idx) + '</button>' +
             '<span class="status-mascot-hint">Customize</span>' +
           '</div>' +
           '<div class="status-main">' +
@@ -1605,13 +1654,14 @@
 
     var classTiles = AVATAR_CLASS_ORDER.map(function(cid){
       var c = AVATAR_CLASSES[cid];
-      var svg = mascotSVG(0, cid, choice.idx);
+      var svg = mascotDisplay(0, cid, choice.idx, { small:true, blink:false });
       return '<button type="button" class="avatar-class-tile'+(cid===choice.cls?' active':'')+'" onclick="App.setAvatarClass(\''+cid+'\')">' +
         '<span class="avatar-class-thumb">'+svg+'</span>' +
         '<span class="avatar-class-name">'+esc(c.label)+'</span>' +
       '</button>';
     }).join('');
 
+    var isImageClass = !!IMAGE_AVATARS[choice.cls];
     var schemeSwatches = cdef.schemes.map(function(sch, i){
       return '<button type="button" class="avatar-scheme-swatch'+(i===choice.idx?' active':'')+'" title="'+esc(sch.name)+'" style="background:linear-gradient(135deg,'+sch.body+','+sch.trim+')" onclick="App.setAvatarScheme('+i+')"></button>';
     }).join('');
@@ -1620,9 +1670,9 @@
       '<div class="avatar-picker-backdrop" onclick="App.closeAvatarPicker()">' +
         '<div class="avatar-picker" onclick="event.stopPropagation()">' +
           '<div class="avatar-picker-head"><h2>Choose your avatar</h2><button type="button" class="avatar-picker-close" onclick="App.closeAvatarPicker()">&times;</button></div>' +
-          '<div class="avatar-picker-preview">'+mascotSVG(phys.score, choice.cls, choice.idx)+'</div>' +
+          '<div class="avatar-picker-preview">'+mascotDisplay(phys.score, choice.cls, choice.idx)+'</div>' +
           '<div class="avatar-class-grid">'+classTiles+'</div>' +
-          '<div class="avatar-scheme-row"><span class="avatar-scheme-label">'+esc(cdef.schemes[choice.idx].name)+'</span><div class="avatar-scheme-swatches">'+schemeSwatches+'</div></div>' +
+          (isImageClass ? '' : '<div class="avatar-scheme-row"><span class="avatar-scheme-label">'+esc(cdef.schemes[choice.idx].name)+'</span><div class="avatar-scheme-swatches">'+schemeSwatches+'</div></div>') +
         '</div>' +
       '</div>'
     );

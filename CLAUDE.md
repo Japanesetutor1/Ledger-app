@@ -89,6 +89,42 @@ it again if you add another standalone setting.
   version named it after, and gave it the exact silhouette cues of, a
   specific trademarked game creature. If asked to add more classes, keep
   them archetypal, not lifted from a specific named property.
+- **Hybrid rendering — painted-art classes vs. SVG-rig classes:** as of
+  this session, a class can *either* use the procedural `mascotSVG` rig
+  *or* a pair of illustrated portrait images, per-class, via the
+  `IMAGE_AVATARS` object and `mascotDisplay(score, classId, schemeIdx, opts)`
+  wrapper (defined just above `mascotSVG`). **Always call `mascotDisplay`
+  at render call sites, never `mascotSVG` directly** — it dispatches to
+  whichever rendering path that class actually uses, and classes with no
+  `IMAGE_AVATARS` entry fall straight back to the SVG rig with no other
+  code changes needed.
+  - Ranger is the first (and currently only) image-avatar class:
+    `ranger-open.jpg` / `ranger-closed.jpg`, AI-generated illustrated
+    portraits (not user-uploaded photos — this doesn't implicate the
+    real-person-image caution below, but keep being deliberate about
+    what any future generated art depicts).
+  - Each image-avatar class needs **two frames, same pose/framing/
+    lighting** — eyes-open and eyes-closed — so the CSS blink crossfade
+    (`.mascot-portrait-blink`, `@keyframes portraitBlink`) reads as a
+    natural blink instead of a jump-cut. Getting a matching pair from an
+    external image model works best via img2img/same-seed "close the
+    eyes, change nothing else" editing, not two independent generations.
+  - Image-avatar classes **deliberately have no color-scheme variants**
+    (recoloring painted art isn't a hex-swap the way the SVG rig is) —
+    `getAvatarChoice()`/`settings.avatarScheme` still exists for SVG
+    classes, but the scheme swatch row is hidden in the picker for any
+    class with an `IMAGE_AVATARS` entry (see `isImageClass` in
+    `renderAvatarPicker`). Don't try to add scheme swatches back for
+    image classes without a real plan for multi-image recoloring.
+  - Score/trend reactivity for image classes is **a color-only glow**
+    (`--mascot-glow`, from the existing `physiqueColor(score)`), not a
+    pose or art change — deliberately simpler than the SVG rig's
+    squat/stance pose shift. Keep it that way unless asked for more;
+    per-band art would mean generating a full image set per score band
+    per class.
+  - New image assets are real files (like the app icons), not inlined
+    as base64 — add any new ones to `ASSETS` in `sw.js` and bump `CACHE`,
+    same as any other asset change.
 - **Body size deliberately does NOT reflect the user's actual weight/BMI.**
   It's driven only by `band.squat` (the short-term calorie-trend pose) and
   a fixed per-class `bulkBase` (flavor only — e.g. dwarves run stouter,
