@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ledger — Calorie &amp; Training Log</title>
+<title>SoloTracker — Calorie &amp; Training Log</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#0a0612">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ledger">
+<meta name="apple-mobile-web-app-title" content="SoloTracker">
 <link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -717,7 +717,7 @@
 </style>
 </head>
 <body>
-<div id="app"><div class="loading">Opening ledger…</div></div>
+<div id="app"><div class="loading">Opening SoloTracker…</div></div>
 
 <script>
 (function(){
@@ -2553,7 +2553,7 @@
   // ---------------- render ----------------
   function renderProfileGate(){
     var html = '<div class="auth-gate">';
-    html += '<div class="auth-brand">LEDGER<span>.</span></div>';
+    html += '<div class="auth-brand">SOLOTRACKER<span>.</span></div>';
 
     if(authView === 'username'){
       var isFirstRun = profiles.length === 0 && !authIsMigration;
@@ -2659,7 +2659,7 @@
   function renderHeader(){
     return (
       '<div class="app-header">' +
-        '<div><div class="wordmark">LEDGER<span>.</span></div>' +
+        '<div><div class="wordmark">SOLOTRACKER<span>.</span></div>' +
         '<div class="tagline">calorie &amp; training log</div></div>' +
         '<div class="header-right">' +
           '<button class="icon-btn" title="Settings" onclick="App.toggleSettings()">&#9881;</button>' +
@@ -3480,7 +3480,7 @@
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'ledger-backup-' + todayStr() + '.json';
+    a.download = 'solotracker-backup-' + todayStr() + '.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -3517,7 +3517,7 @@
       await saveFavorites();
       render();
     }catch(e){
-      if(errEl) errEl.textContent = "Couldn't read that file — make sure it's a Ledger backup export.";
+      if(errEl) errEl.textContent = "Couldn't read that file — make sure it's a SoloTracker backup export.";
     }
     inputEl.value = '';
   };

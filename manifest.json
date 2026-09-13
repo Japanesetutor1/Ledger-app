@@ -1,13 +1,13 @@
 {
-  "name": "Ledger — Calorie & Training Log",
-  "short_name": "Ledger",
+  "name": "SoloTracker — Calorie & Training Log",
+  "short_name": "SoloTracker",
   "description": "Track food, exercise, and your running calorie balance.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#101418",
-  "theme_color": "#101418",
+  "background_color": "#0a0612",
+  "theme_color": "#0a0612",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },

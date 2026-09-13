@@ -1,4 +1,12 @@
-# Ledger — Calorie & Training Log
+# SoloTracker — Calorie & Training Log
+
+**Displayed/brand name is "SoloTracker"** (renamed from "Ledger"). The
+underlying GitHub repo and Railway project/service names were deliberately
+NOT renamed (see the deployment section near the bottom) — that's normal,
+not a mismatch to "fix." Only user-facing strings (title, wordmark, PWA
+manifest, backup filename/error text) were changed. The debit/credit/
+balance accounting *vocabulary* in the UI is unrelated to the old brand
+name and was kept as-is — see the Design system section below.
 
 A single-file web app (PWA) for tracking calories, exercise, hydration, and a
 gamified "leveling" layer, built conversationally with Claude in chat and
@@ -16,9 +24,9 @@ deployed via GitHub → Railway.
 - **`sw.js`** — service worker. Uses a **network-first** fetch strategy
   (always try network, fall back to cache only when offline) so redeploys
   reach installed devices. **Whenever you change `index.html`, bump the
-  `CACHE` constant in `sw.js`** (e.g. `ledger-v2` → `ledger-v3`) so the new
-  service worker is detected and old cached assets are cleared. Do not
-  revert this to cache-first — that was a real bug that shipped once.
+  `CACHE` constant in `sw.js`** (e.g. `solotracker-v24` → `solotracker-v25`)
+  so the new service worker is detected and old cached assets are cleared.
+  Do not revert this to cache-first — that was a real bug that shipped once.
 - **`icon-192.png` / `icon-512.png`** — app icons. Only regenerate these if
   explicitly asked to change the visual identity.
 
@@ -642,9 +650,14 @@ is completed for the day.
 ## Deployment
 
 - This repo (`Japanesetutor1/Ledger-app`) is connected to a Railway
-  project (`ledger-app` / service `ledger-web`). **Pushing to `main`
-  triggers an automatic Railway rebuild and redeploy** — no manual step
-  needed. Live at the Railway-generated domain shown in that project.
+  project (`ledger-app` / service `ledger-web`). These infra names still
+  say "Ledger" on purpose — only the app's user-facing branding was
+  renamed to "SoloTracker" (title, wordmark, manifest, backup filename);
+  the repo/project/service names were deliberately left alone since
+  renaming those risks breaking the Railway↔GitHub connection for no
+  user-facing benefit. Don't "fix" this mismatch unprompted. **Pushing to
+  `main` triggers an automatic Railway rebuild and redeploy** — no manual
+  step needed. Live at the Railway-generated domain shown in that project.
 - There is no CI/test suite. Before committing changes to `index.html`,
   at minimum verify the extracted `<script>` block has valid JS syntax
   (e.g. `node --check`) — a broken script tag takes down the whole app
