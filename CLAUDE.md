@@ -97,6 +97,23 @@ PIN. Read this before touching storage, `render()`, or anything under
   unlocked means `renderProfileGate()` replaces the entire app, full stop.
   Every other render function assumes a profile is already active; don't
   call them from gate-related code.
+- **PIN keypad taps do NOT call the full `render()`.** They did originally
+  and it felt clunky — every digit tore down and rebuilt the entire gate
+  screen (keypad included), which is unnecessary work and visibly
+  laggier than it needs to be for something that should feel instant.
+  `App.authKeyPress`/`App.authBackspace` now call
+  `updatePinDotsInPlace()`, which only toggles the `.filled` class on the
+  existing dot elements — the keypad buttons themselves are never
+  recreated while typing. The dots' pop/glow (`.auth-pin-dot.filled`) is
+  a CSS `transition`, which only animates smoothly *because* the same DOM
+  node persists across taps; reintroducing a full re-render per keypress
+  would silently break that animation too, not just the responsiveness.
+  A full `render()` still happens once per completed 4-digit entry (via
+  `submitAuthPin`) — that's fine, it's infrequent enough not to matter,
+  and the `.auth-gate` fade-in (`authGateFade`) makes that transition
+  intentional rather than jarring. If touching PIN entry again, keep
+  novel per-keystroke feedback (haptics, animations, sounds) on this
+  lightweight path, not the full render path.
 - Deleting a profile (`App.deleteProfile`) removes its three namespaced
   storage keys (and IndexedDB mirror copies) along with its `profiles`
   entry — this is real, immediate, irreversible deletion behind one

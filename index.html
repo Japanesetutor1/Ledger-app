@@ -501,6 +501,10 @@
   .auth-gate{
     min-height:80vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:24px 16px; max-width:380px; margin:0 auto; gap:4px;
+    animation:authGateFade .22s ease;
+  }
+  @keyframes authGateFade{
+    from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); }
   }
   .auth-brand{
     font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:24px; letter-spacing:0.5px;
@@ -564,9 +568,13 @@
 
   .auth-pin-dots{ display:flex; gap:16px; justify-content:center; margin:10px 0 0; }
   .auth-pin-dot{
-    width:16px; height:16px; border-radius:50%; border:1.5px solid #363c47; background:none; transition:background .1s ease;
+    width:16px; height:16px; border-radius:50%; border:1.5px solid #363c47; background:none;
+    transition:background .12s ease, border-color .12s ease, transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease;
   }
-  .auth-pin-dot.filled{ background:var(--gold); border-color:var(--gold); }
+  .auth-pin-dot.filled{
+    background:var(--gold); border-color:var(--gold); transform:scale(1.22);
+    box-shadow:0 0 9px -1px var(--gold);
+  }
   .auth-pin-dots.shake{ animation:authShake .35s ease; }
   @keyframes authShake{
     0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-8px); } 40%{ transform:translateX(8px); }
@@ -578,10 +586,11 @@
   }
   .auth-key{
     width:64px; height:64px; border-radius:50%; background:#12161c; border:1px solid #262b34; color:var(--text);
-    font-family:'IBM Plex Mono',monospace; font-size:20px; cursor:pointer; transition:background .12s ease;
+    font-family:'IBM Plex Mono',monospace; font-size:20px; cursor:pointer;
+    transition:background .12s ease, transform .08s ease; -webkit-tap-highlight-color:transparent;
   }
   .auth-key:hover{ background:#1a1f28; border-color:var(--gold); }
-  .auth-key:active{ background:#232a35; }
+  .auth-key:active{ background:#232a35; transform:scale(0.9); }
   .auth-key-blank{ background:none; border:none; cursor:default; }
   .auth-key-back{ font-size:18px; color:var(--text-dim); }
 </style>
@@ -2739,18 +2748,47 @@
     render();
   };
 
+  var authSubmitting = false;
+
+  // Updates just the 4 dot indicators in place instead of tearing down and
+  // rebuilding the whole gate screen (keypad included) on every digit —
+  // that full re-render was the actual source of the "clunky" typing feel.
+  // Returns false if the dots aren't on screen (shouldn't normally happen
+  // while authView==='pin'), so callers can fall back to a full render.
+  function updatePinDotsInPlace(){
+    var dotsEl = document.querySelector('.auth-pin-dots');
+    if(!dotsEl) return false;
+    var dots = dotsEl.querySelectorAll('.auth-pin-dot');
+    for(var i=0;i<dots.length;i++){
+      if(i < authPin.length) dots[i].classList.add('filled');
+      else dots[i].classList.remove('filled');
+    }
+    if(authError){
+      authError = '';
+      var errEl = document.querySelector('.auth-error-slot');
+      if(errEl) errEl.textContent = '';
+    }
+    return true;
+  }
+
   App.authKeyPress = function(d){
-    if(authPin.length >= 4) return;
+    if(authSubmitting || authPin.length >= 4) return;
     authPin.push(d);
-    render();
+    if(navigator.vibrate){ try{ navigator.vibrate(8); }catch(e){} }
+    if(!updatePinDotsInPlace()) render();
     if(authPin.length === 4){
-      setTimeout(function(){ submitAuthPin(); }, 120);
+      authSubmitting = true;
+      setTimeout(function(){
+        submitAuthPin().then(function(){ authSubmitting = false; }).catch(function(){ authSubmitting = false; });
+      }, 130);
     }
   };
 
   App.authBackspace = function(){
+    if(authSubmitting) return;
     authPin.pop();
-    render();
+    if(navigator.vibrate){ try{ navigator.vibrate(6); }catch(e){} }
+    if(!updatePinDotsInPlace()) render();
   };
 
   async function submitAuthPin(){
@@ -2835,7 +2873,7 @@
   };
 
   document.addEventListener('keydown', function(e){
-    if(authView !== 'pin') return;
+    if(authView !== 'pin' || e.repeat) return;
     if(e.key >= '0' && e.key <= '9'){ App.authKeyPress(e.key); }
     else if(e.key === 'Backspace'){ App.authBackspace(); }
   });
