@@ -60,14 +60,22 @@ PIN. Read this before touching storage, `render()`, or anything under
   practice regardless. "Forgot PIN" has **no real recovery barrier** by
   design (confirm the warning dialog, set a new PIN, done) — that's
   intentional given there's no email/account to verify against, not a bug.
-- **Flow is username-first, always** — typing a name and hitting Continue
-  either routes straight to PIN verification (existing username, matched
-  case-insensitively) or straight to PIN creation (unrecognized username),
-  with no separate "sign up" vs "log in" choice for the user to make. A row
-  of tappable "quick switch" tiles (initial-letter avatar) sits below the
-  input as a shortcut for known profiles, but typing is the primary path —
-  don't reintroduce a tile-only picker as the main gate screen; that was
-  tried and explicitly replaced.
+- **Usernames must be unique (case-insensitive), enforced on submit.**
+  Typing a name that matches an existing profile is rejected outright with
+  an inline error ("That name is already taken on this device — pick
+  another") — it does **not** silently route into that profile's PIN
+  entry. An earlier version of this flow *did* auto-route a matched
+  username straight to PIN verification (treating the text field as a
+  combined signup/login box); that was deliberately replaced because (a)
+  it lets someone probe whether a given username exists on the device
+  just by typing it, and (b) "type a name, sometimes get a stranger's PIN
+  prompt" is a confusing, easy-to-misuse UI. The quick-switch tile row
+  (initial-letter avatar) below the field is the *only* path to an
+  existing profile's PIN screen now — the text field is exclusively for
+  creating a new one. Don't reintroduce the merge-on-match behavior.
+  Failed duplicate submissions keep the typed text in the field
+  (`authUsernameDraft` is still set on the error path) so the user can
+  edit it instead of retyping from scratch.
 - **Storage is namespaced per profile.** `settings`/`logs`/`favorites`
   became `settings:<id>`/`logs:<id>`/`favorites:<id>` (see `loadState`,
   `saveSettings`, `saveLogs`, `saveFavorites` — they all key off the

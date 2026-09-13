@@ -2707,25 +2707,14 @@
     var el = document.getElementById('authUsernameField');
     var name = (el ? el.value : '').trim();
     if(!name){ authError = 'Enter a username.'; render(); return; }
+    var dup = profiles.some(function(p){ return p.username.toLowerCase() === name.toLowerCase(); });
+    if(dup){ authUsernameDraft = name; authError = 'That name is already taken on this device — pick another.'; render(); return; }
+    authUsernameDraft = name;
     authError = '';
     authPin = [];
     authPendingPlain = null;
-
-    var existing = profiles.find(function(p){ return p.username.toLowerCase() === name.toLowerCase(); });
-    if(existing){
-      // Known username -> go straight to PIN verification, same as tapping
-      // its quick-switch tile.
-      authUsernameDraft = existing.username;
-      authProfileId = existing.id;
-      authMode = 'enter';
-    } else {
-      // Unrecognized username -> treat as a new profile. No extra
-      // confirmation step; the PIN screen's own "<username>" subtitle
-      // makes it clear a new profile is being set up, not logged into.
-      authUsernameDraft = name;
-      authProfileId = null;
-      authMode = 'createNew';
-    }
+    authProfileId = null;
+    authMode = 'createNew';
     authView = 'pin';
     render();
   };
