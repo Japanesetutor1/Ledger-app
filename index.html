@@ -158,41 +158,6 @@
   .favorites-wrap{ border-bottom:1px solid var(--border); }
 
   .fooddb{ border-bottom:1px solid var(--border); padding:12px 14px; }
-  .nutrient-suggest{ padding:12px 14px 0; }
-  .nutrient-suggest-btn{
-    width:100%; background:var(--surface-2); border:1px dashed var(--credit-dim); color:var(--credit);
-    border-radius:var(--radius); padding:9px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
-  }
-  .nutrient-suggest-btn:hover{ border-style:solid; border-color:var(--credit); }
-  .nutrient-suggest-panel{
-    margin-top:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
-    padding:10px 12px;
-  }
-  .nutrient-suggest-lead{ color:var(--text-dim); font-size:11.5px; line-height:1.5; margin-bottom:8px; }
-  .nutrient-suggest-empty{ color:var(--text-faint); font-size:12px; margin-bottom:8px; }
-  .nutrient-suggest-row{
-    display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--border-soft);
-    font-size:12.5px;
-  }
-  .nutrient-suggest-row:last-of-type{ border-bottom:none; }
-  .nutrient-suggest-info{ flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
-  .nutrient-suggest-name{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .nutrient-suggest-tags{ display:flex; gap:4px; flex-wrap:wrap; }
-  .nutrient-tag{
-    background:var(--credit-dim); color:var(--credit); border-radius:8px; padding:1px 7px;
-    font-size:10px; text-transform:uppercase; letter-spacing:0.3px;
-  }
-  .nutrient-suggest-cals{ color:var(--text-dim); flex-shrink:0; }
-  .nutrient-suggest-row button{
-    background:var(--surface-3); border:1px solid var(--border); color:var(--text);
-    border-radius:var(--radius); padding:3px 9px; font-size:11.5px; cursor:pointer; flex-shrink:0;
-  }
-  .nutrient-suggest-row button:hover{ border-color:var(--gold); color:var(--gold); }
-  .nutrient-suggest-close{
-    width:100%; margin-top:6px; background:none; border:none; color:var(--text-faint);
-    font-size:11.5px; padding:4px; cursor:pointer;
-  }
-  .nutrient-suggest-close:hover{ color:var(--text-dim); }
   .fooddb input{
     width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
     border-radius:var(--radius); padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:8px;
@@ -279,7 +244,6 @@
 
   /* ---------- Trend ---------- */
   .trend{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
-  .nutrient-coverage{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
   .workout-task{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:18px; }
   .workout-task-head{ margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .workout-day-tag{
@@ -327,19 +291,6 @@
     display:block; width:100%; margin-top:8px; background:none; border:none; color:var(--text-faint);
     font-size:11.5px; padding:4px; cursor:pointer;
   }
-  .nutrient-coverage-head{ margin-bottom:12px; }
-  .nutrient-coverage-head h2{ font-size:13px; margin:0; font-weight:600; }
-  .nutrient-cov-row{ display:flex; align-items:center; gap:10px; padding:5px 0; }
-  .nutrient-cov-label{ width:70px; flex-shrink:0; font-size:12.5px; color:var(--text-dim); text-transform:capitalize; }
-  .nutrient-cov-bar-outer{ flex:1; height:8px; background:var(--surface-3); border-radius:4px; overflow:hidden; }
-  .nutrient-cov-bar-inner{ height:100%; border-radius:4px; transition:width .3s ease; }
-  .nutrient-cov-count{ width:36px; text-align:right; flex-shrink:0; font-size:12px; color:var(--text-dim); }
-  .nutrient-cov-note{ color:var(--text-faint); font-size:11px; line-height:1.5; margin-top:10px; }
-  .nutrient-cov-suggest-btn{
-    width:100%; margin-top:10px; background:var(--surface-2); border:1px solid var(--border); color:var(--gold);
-    border-radius:var(--radius); padding:8px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
-  }
-  .nutrient-cov-suggest-btn:hover{ border-color:var(--gold); }
   .trend-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; flex-wrap:wrap; gap:6px; }
   .trend-head h2{ font-size:13px; margin:0; font-weight:600; }
   .trend-head .window-toggle{ display:flex; gap:6px; }
@@ -1121,166 +1072,9 @@
   ];
 
   var dbSearchQuery = '';
-  var nutrientSuggestions = null; // null = panel closed; [] or [...] = open with results
-  var nutrientSuggestFocus = null; // which nutrient a targeted suggestion call was for, if any
   var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
   var showFitnessAssessment = false; // force-show the assessment card even if already taken (Retake link)
   var fitnessDraft = { pushup: null, squat: null, activity: null }; // in-progress answers before submit
-
-  // ---------------- nutrient-dense suggestions ----------------
-  // A small curated list of whole foods that are genuinely rich sources of
-  // three commonly under-consumed nutrients (folate, iron, potassium),
-  // used to power "Healthy pick within budget" (see suggestNutrientFoods).
-  // Deliberately NOT AI-generated: the AI estimation calls elsewhere in
-  // this app only work inside a Claude artifact, not the deployed/
-  // standalone build (see CLAUDE.md) -- this needs to actually work on
-  // the phone, so it's a hardcoded reference list, same philosophy as
-  // FOOD_DB above. Calorie figures are per the stated serving, best-
-  // estimate (not lab-verified). Nutrient tags are a genuine, well-known
-  // primary source for that nutrient at a meaningful fraction of daily
-  // needs per serving -- not exhaustive, not a substitute for a real
-  // nutrition database, just enough to point someone toward a better
-  // choice than an arbitrary snack.
-  var NUTRIENT_FOODS = [
-    {id:'nf_lentils', name:'Lentils, cooked (1 cup)', cals:230, nutrients:['folate','iron','potassium']},
-    {id:'nf_chickpeas', name:'Chickpeas, cooked (1 cup)', cals:270, nutrients:['folate','iron','potassium']},
-    {id:'nf_spinach_cooked', name:'Spinach, cooked (1 cup)', cals:40, nutrients:['folate','iron','potassium']},
-    {id:'nf_spinach_salad', name:'Baby spinach salad (2 cups raw)', cals:15, nutrients:['folate','iron','potassium']},
-    {id:'nf_edamame', name:'Edamame, steamed (1 cup)', cals:190, nutrients:['folate','iron','potassium']},
-    {id:'nf_black_beans', name:'Black beans, cooked (1 cup)', cals:225, nutrients:['folate','iron','potassium']},
-    {id:'nf_white_beans', name:'White beans, cooked (1 cup)', cals:250, nutrients:['iron','potassium']},
-    {id:'nf_avocado', name:'Avocado (1/2)', cals:120, nutrients:['folate','potassium']},
-    {id:'nf_banana', name:'Banana (1 medium)', cals:105, nutrients:['potassium']},
-    {id:'nf_sweet_potato', name:'Sweet potato, baked (1 medium)', cals:115, nutrients:['potassium']},
-    {id:'nf_potato', name:'Potato, baked with skin (1 medium)', cals:160, nutrients:['potassium']},
-    {id:'nf_salmon', name:'Salmon, baked (4 oz)', cals:230, nutrients:['potassium']},
-    {id:'nf_yogurt', name:'Plain Greek yogurt (1 cup)', cals:150, nutrients:['potassium']},
-    {id:'nf_edamame_snack', name:'Edamame, shell-on snack pack', cals:100, nutrients:['folate','iron','potassium']},
-    {id:'nf_asparagus', name:'Asparagus, roasted (1 cup)', cals:40, nutrients:['folate','potassium']},
-    {id:'nf_broccoli', name:'Broccoli, steamed (1 cup)', cals:55, nutrients:['folate','potassium']},
-    {id:'nf_orange', name:'Orange (1 medium)', cals:65, nutrients:['folate','potassium']},
-    {id:'nf_tofu', name:'Tofu, firm (1/2 cup)', cals:95, nutrients:['iron']},
-    {id:'nf_pumpkinseeds', name:'Pumpkin seeds, roasted (1 oz)', cals:150, nutrients:['iron']},
-    {id:'nf_beef', name:'Lean ground beef, cooked (4 oz)', cals:230, nutrients:['iron']},
-    {id:'nf_dark_chocolate', name:'Dark chocolate, 70%+ (1 oz)', cals:170, nutrients:['iron']},
-    {id:'nf_white_beans_soup', name:'White bean & kale soup (1.5 cups)', cals:210, nutrients:['iron','potassium','folate']}
-  ];
-  var NUTRIENT_LABELS = { folate:'folate', iron:'iron', potassium:'potassium' };
-
-  // Best-effort nutrient tagging for anything logged OUTSIDE the curated
-  // NUTRIENT_FOODS list (manual entries, AI-estimated entries, FOOD_DB
-  // items, favorites) -- a real per-food nutrient database is out of
-  // scope here (no backend, no licensed nutrition API), so this is a
-  // simple keyword match against the food's name/label. It's genuinely
-  // useful signal (most people describe what they ate in words that
-  // include the actual ingredient), not authoritative -- two different
-  // "chicken salad"s could differ a lot in what's actually in them. Keep
-  // it conservative: only tag on a real ingredient keyword, never guess
-  // from a vague description.
-  var NUTRIENT_KEYWORDS = [
-    { kw:'spinach', nutrients:['folate','iron','potassium'] },
-    { kw:'kale', nutrients:['folate','potassium'] },
-    { kw:'lentil', nutrients:['folate','iron','potassium'] },
-    { kw:'chickpea', nutrients:['folate','iron','potassium'] },
-    { kw:'garbanzo', nutrients:['folate','iron','potassium'] },
-    { kw:'black bean', nutrients:['folate','iron','potassium'] },
-    { kw:'white bean', nutrients:['iron','potassium'] },
-    { kw:'kidney bean', nutrients:['iron','potassium'] },
-    { kw:'bean', nutrients:['iron','potassium'] },
-    { kw:'edamame', nutrients:['folate','iron','potassium'] },
-    { kw:'avocado', nutrients:['folate','potassium'] },
-    { kw:'asparagus', nutrients:['folate','potassium'] },
-    { kw:'broccoli', nutrients:['folate','potassium'] },
-    { kw:'orange', nutrients:['folate','potassium'] },
-    { kw:'banana', nutrients:['potassium'] },
-    { kw:'sweet potato', nutrients:['potassium'] },
-    { kw:'potato', nutrients:['potassium'] },
-    { kw:'salmon', nutrients:['potassium'] },
-    { kw:'yogurt', nutrients:['potassium'] },
-    { kw:'tofu', nutrients:['iron'] },
-    { kw:'pumpkin seed', nutrients:['iron'] },
-    { kw:'dark chocolate', nutrients:['iron'] },
-    { kw:'beef', nutrients:['iron'] },
-    { kw:'steak', nutrients:['iron'] },
-    { kw:'red meat', nutrients:['iron'] }
-  ];
-  function guessNutrientsFromName(name){
-    var lower = (name || '').toLowerCase();
-    var found = {};
-    NUTRIENT_KEYWORDS.forEach(function(entry){
-      if(lower.indexOf(entry.kw) !== -1){
-        entry.nutrients.forEach(function(n){ found[n] = true; });
-      }
-    });
-    var arr = Object.keys(found);
-    return arr.length ? arr : undefined;
-  }
-
-  // How many of the last `windowN` tracked days included at least one food
-  // entry tagged with each nutrient. This is what "gap over time" means
-  // here -- a day either had a source of that nutrient logged, or it
-  // didn't; there's no attempt to estimate actual milligrams/mcg consumed
-  // or compare to an RDA, since the underlying per-food data is tags, not
-  // real quantities.
-  function nutrientCoverage(windowN){
-    var dates = lastNTrackedDates(windowN).filter(function(d){ return dayTotals(d).tracked; });
-    var counts = { folate:0, iron:0, potassium:0 };
-    dates.forEach(function(d){
-      var day = logs[d] || { food: [] };
-      var seen = {};
-      (day.food || []).forEach(function(f){
-        (f.nutrients || []).forEach(function(n){ seen[n] = true; });
-      });
-      Object.keys(seen).forEach(function(n){ if(counts.hasOwnProperty(n)) counts[n]++; });
-    });
-    return { days: dates.length, folate: counts.folate, iron: counts.iron, potassium: counts.potassium };
-  }
-
-  // Picks up to 3 items that fit the remaining calorie budget, trying to
-  // cover as many of the three target nutrients as possible across the
-  // picks rather than returning three items that all hit the same one.
-  // A small margin (remainingBudget + 60) is allowed since these are
-  // suggestions, not a hard commitment, and whole-food portions are lumpy.
-  function suggestNutrientFoods(remainingBudget, priorityNutrient){
-    var margin = 60;
-    var candidates = NUTRIENT_FOODS.filter(function(f){ return f.cals <= remainingBudget + margin; });
-    if(!candidates.length) return [];
-    // Shuffle rather than sort-by-calories: sorting cheapest-first made
-    // this deterministically suggest the same 2-3 lowest-calorie items
-    // (usually spinach twice) whenever the budget was generous. A fresh
-    // shuffle each call means a real variety of the list gets surfaced
-    // over repeated use, while still respecting the budget filter above.
-    candidates = candidates.slice();
-    for(var i=candidates.length-1;i>0;i--){
-      var j=Math.floor(Math.random()*(i+1));
-      var tmp=candidates[i]; candidates[i]=candidates[j]; candidates[j]=tmp;
-    }
-    if(priorityNutrient){
-      // Targeted mode (from the nutrient coverage panel): fill as many
-      // slots as possible from foods that hit the specific weak nutrient,
-      // only falling back to the general pool if there aren't 3 that fit.
-      var primary = candidates.filter(function(f){ return f.nutrients.indexOf(priorityNutrient) !== -1; });
-      var rest = candidates.filter(function(f){ return f.nutrients.indexOf(priorityNutrient) === -1; });
-      var targeted = primary.slice(0,3);
-      var ri = 0;
-      while(targeted.length < 3 && ri < rest.length){ targeted.push(rest[ri]); ri++; }
-      return targeted.slice(0,3);
-    }
-    var picks = [];
-    // First pass: greedily cover each of the three nutrients at least once.
-    ['folate','iron','potassium'].forEach(function(nutrient){
-      if(picks.length >= 3) return;
-      var match = candidates.find(function(f){
-        return f.nutrients.indexOf(nutrient) !== -1 && picks.indexOf(f) === -1;
-      });
-      if(match) picks.push(match);
-    });
-    // Fill any remaining slots with whatever's left of the shuffled list.
-    for(var k=0;k<candidates.length && picks.length < 3; k++){
-      if(picks.indexOf(candidates[k]) === -1) picks.push(candidates[k]);
-    }
-    return picks.slice(0,3);
-  }
 
   var DEFAULT_FAVORITES = {
     food: [
@@ -2648,7 +2442,6 @@
     html += renderWeightStrip();
     html += renderHydration();
     html += renderPanels();
-    html += renderNutrientCoverage();
     html += renderTrend();
     html += renderAvatarPicker();
 
@@ -3054,83 +2847,18 @@
     );
   }
 
-  function renderNutrientCoverage(){
-    var cov = nutrientCoverage(7);
-    if(cov.days === 0){
-      return (
-        '<div class="nutrient-coverage">' +
-          '<div class="nutrient-coverage-head"><h2>Nutrient coverage</h2></div>' +
-          '<div class="trend-empty">Log a few days of food to see which nutrients you\'re getting consistently.</div>' +
-        '</div>'
-      );
-    }
-    var rows = ['folate','iron','potassium'].map(function(n){
-      var c = cov[n];
-      var pct = cov.days ? c / cov.days : 0;
-      var barColor = pct >= 0.57 ? 'var(--credit)' : (pct >= 0.29 ? 'var(--gold)' : 'var(--debit)');
-      return '<div class="nutrient-cov-row">' +
-        '<span class="nutrient-cov-label">' + NUTRIENT_LABELS[n] + '</span>' +
-        '<div class="nutrient-cov-bar-outer"><div class="nutrient-cov-bar-inner" style="width:' + Math.round(pct*100) + '%;background:' + barColor + ';"></div></div>' +
-        '<span class="nutrient-cov-count num">' + c + '/' + cov.days + '</span>' +
-      '</div>';
-    }).join('');
-    var weakest = ['folate','iron','potassium'].reduce(function(a,b){ return cov[a] <= cov[b] ? a : b; });
-    return (
-      '<div class="nutrient-coverage">' +
-        '<div class="nutrient-coverage-head"><h2>Nutrient coverage (' + cov.days + 'd)</h2></div>' +
-        rows +
-        '<div class="nutrient-cov-note">Counts days with at least one food tagged as a source — a rough signal from what you\'ve logged and how you described it, not a lab measurement.</div>' +
-        '<button class="nutrient-cov-suggest-btn" onclick="App.suggestForNutrient(\'' + weakest + '\')">Suggest ' + NUTRIENT_LABELS[weakest] + '-rich foods</button>' +
-      '</div>'
-    );
-  }
 
-  function renderNutrientSuggestions(budgetLeft){
-    var html = '<div class="nutrient-suggest">';
-    html += '<button type="button" class="nutrient-suggest-btn" onclick="App.suggestHealthyFood()">Healthy pick within budget</button>';
-    if(nutrientSuggestions !== null){
-      if(nutrientSuggestions.length === 0){
-        html += '<div class="nutrient-suggest-panel">' +
-          '<div class="nutrient-suggest-empty">Nothing in this list fits what\'s left today (' + Math.max(0,round(budgetLeft)) + ' kcal) — that\'s alright, tomorrow\'s a fresh budget.</div>' +
-          '<button class="nutrient-suggest-close" onclick="App.closeNutrientSuggestions()">Close</button>' +
-        '</div>';
-      } else {
-        var rows = nutrientSuggestions.map(function(f){
-          var tags = f.nutrients.map(function(n){ return '<span class="nutrient-tag">' + NUTRIENT_LABELS[n] + '</span>'; }).join('');
-          return '<div class="nutrient-suggest-row">' +
-            '<div class="nutrient-suggest-info"><span class="nutrient-suggest-name">' + esc(f.name) + '</span>' +
-            '<span class="nutrient-suggest-tags">' + tags + '</span></div>' +
-            '<span class="nutrient-suggest-cals num">' + f.cals + '</span>' +
-            '<button onclick="App.addNutrientSuggestion(\'' + f.id + '\')">Add</button>' +
-          '</div>';
-        }).join('');
-        html += '<div class="nutrient-suggest-panel">' +
-          '<div class="nutrient-suggest-lead">' + (nutrientSuggestFocus
-            ? ('Fits your ' + Math.max(0,round(budgetLeft)) + ' kcal left today, and rich in ' + NUTRIENT_LABELS[nutrientSuggestFocus] + ' — the nutrient you\'ve had the least of lately.')
-            : ('Fits your ' + Math.max(0,round(budgetLeft)) + ' kcal left today, and covers folate, iron &amp; potassium — nutrients a lot of diets fall short on.')
-          ) + '</div>' +
-          rows +
-          '<button class="nutrient-suggest-close" onclick="App.closeNutrientSuggestions()">Close</button>' +
-        '</div>';
-      }
-    }
-    html += '</div>';
-    return html;
-  }
 
   function renderPanels(){
     var day = ensureDayReadOnly(currentDate);
     var food = day.food, exercise = day.exercise;
     var foodTotal = food.reduce(function(a,f){return a+f.cals;},0);
     var exTotal = exercise.reduce(function(a,e){return a+e.cals;},0);
-    var t = dayTotals(currentDate);
-    var budgetLeft = t.totalBurn - t.intake;
 
     return (
       '<div class="panels">' +
         '<div class="panel">' +
-          '<div class="panel-head"><h2 class="debit-text">Debits — food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
-          renderNutrientSuggestions(budgetLeft) +
+          '<div class="panel-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
           renderFoodDbSearch() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
@@ -3142,7 +2870,7 @@
           '<div class="add-row-err" id="foodAddErr"></div>' +
         '</div>' +
         '<div class="panel">' +
-          '<div class="panel-head"><h2 class="credit-text">Credits — exercise</h2><span class="total num">' + round(exTotal) + '</span></div>' +
+          '<div class="panel-head"><h2 class="credit-text">Exercise</h2><span class="total num">' + round(exTotal) + '</span></div>' +
           renderFavoritesRow('exercise') +
           renderEntryList(exercise, 'exercise') +
           '<div class="add-row">' +
@@ -3538,7 +3266,6 @@
       var cals = parseFloat(calsRaw);
       if(isNaN(cals)) return;
       var manualEntry = { id: uid(), name: name, cals: cals, estimated: false };
-      if(type === 'food'){ var ng = guessNutrientsFromName(name); if(ng) manualEntry.nutrients = ng; }
       day[type].push(manualEntry);
       await saveLogs();
       render();
@@ -3557,7 +3284,6 @@
       if(!isFinite(estCals)) throw new Error('bad estimate');
       var label = (result.label && String(result.label).trim()) || name;
       var estEntry = { id: uid(), name: label, cals: estCals, estimated: true };
-      if(type === 'food'){ var ng2 = guessNutrientsFromName(label + ' ' + name); if(ng2) estEntry.nutrients = ng2; }
       day[type].push(estEntry);
       await saveLogs();
       render();
@@ -3585,8 +3311,6 @@
     if(!item) return;
     var day = ensureDay(currentDate);
     var entry = { id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true };
-    var ng = guessNutrientsFromName(item.name);
-    if(ng) entry.nutrients = ng;
     day.food.push(entry);
     await saveLogs();
     render();
@@ -3596,42 +3320,8 @@
     var item = FOOD_DB.find(function(f){ return f.id === id; });
     if(!item) return;
     var fav = { id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true };
-    var ng = guessNutrientsFromName(item.name);
-    if(ng) fav.nutrients = ng;
     favorites.food.push(fav);
     await saveFavorites();
-    render();
-  };
-
-  App.suggestHealthyFood = function(){
-    var t = dayTotals(currentDate);
-    var budgetLeft = t.totalBurn - t.intake;
-    nutrientSuggestions = suggestNutrientFoods(budgetLeft);
-    nutrientSuggestFocus = null;
-    render();
-  };
-
-  App.suggestForNutrient = function(nutrient){
-    var t = dayTotals(currentDate);
-    var budgetLeft = t.totalBurn - t.intake;
-    nutrientSuggestions = suggestNutrientFoods(budgetLeft, nutrient);
-    nutrientSuggestFocus = nutrient;
-    render();
-  };
-
-  App.closeNutrientSuggestions = function(){
-    nutrientSuggestions = null;
-    nutrientSuggestFocus = null;
-    render();
-  };
-
-  App.addNutrientSuggestion = async function(id){
-    var item = NUTRIENT_FOODS.find(function(f){ return f.id === id; });
-    if(!item) return;
-    var day = ensureDay(currentDate);
-    day.food.push({ id: uid(), name: item.name, cals: item.cals, estimated: true, nutrients: item.nutrients.slice() });
-    await saveLogs();
-    nutrientSuggestions = null;
     render();
   };
 
@@ -3716,10 +3406,6 @@
     if(!fav) return;
     var day = ensureDay(currentDate);
     var entry = { id: uid(), name: fav.name, cals: fav.cals, estimated: !!fav.estimated };
-    if(type === 'food'){
-      var ng = fav.nutrients || guessNutrientsFromName(fav.name);
-      if(ng) entry.nutrients = ng;
-    }
     day[type].push(entry);
     await saveLogs();
     render();

@@ -4,9 +4,9 @@
 underlying GitHub repo and Railway project/service names were deliberately
 NOT renamed (see the deployment section near the bottom) — that's normal,
 not a mismatch to "fix." Only user-facing strings (title, wordmark, PWA
-manifest, backup filename/error text) were changed. The debit/credit/
-balance accounting *vocabulary* in the UI is unrelated to the old brand
-name and was kept as-is — see the Design system section below.
+manifest, backup filename/error text) were changed at that point. The
+"Debits"/"Credits" panel labels were a separate, later rename (see Design
+system) — "Food"/"Exercise" now. "Balance"/"Running balance" were kept.
 
 A single-file web app (PWA) for tracking calories, exercise, hydration, and a
 gamified "leveling" layer, built conversationally with Claude in chat and
@@ -162,63 +162,6 @@ labels `computeBMR(settings)` as "BMR" (previously called it "baseline,"
 which was ambiguous in TDEE mode where baseline = BMR × activity, not
 raw BMR).
 
-## Nutrient-aware suggestions AND tracking
-
-The "Healthy pick within budget" button (food panel, above the food-db
-search) and the "Nutrient coverage" panel (below the food/exercise
-panels) are deliberately **not** built on the AI estimation calls used
-elsewhere in this file (`estimateFoodCalories` etc.) — those only work
-inside a Claude.ai artifact, not the deployed/standalone build (see "AI
-features" section below), and this needed to actually work on the
-person's phone. Instead:
-
-- `NUTRIENT_FOODS` is a small hardcoded reference list (~22 real foods)
-  tagged with which of three commonly under-consumed nutrients they're a
-  genuine source of: folate, iron, potassium. Same philosophy as
-  `FOOD_DB` above it — best-estimate figures, not a lab-verified
-  database, chosen to be instantly available offline.
-- `suggestNutrientFoods(remainingBudget, priorityNutrient)` filters to
-  items that fit the remaining calorie budget (plus a small +60kcal
-  margin, since whole-food portions are lumpy and these are
-  suggestions, not a commitment), then **shuffles** before greedily
-  picking one item per target nutrient. It used to sort cheapest-first
-  instead of shuffling, which deterministically surfaced the same 2-3
-  lowest-calorie items (usually spinach twice) on every call with a
-  generous budget — the shuffle is what makes repeated use actually
-  show variety. Don't reintroduce a calorie sort here without re-adding
-  some randomization, or this regresses. The optional `priorityNutrient`
-  arg (used by the coverage panel's "Suggest X-rich foods" button)
-  biases all 3 picks toward that one nutrient instead of round-robin
-  covering all three — see `App.suggestForNutrient`.
-- **Tracking (this is the part that was added after the suggestions
-  feature shipped):** every food-logging path now tags the entry with a
-  `nutrients` array (subset of `['folate','iron','potassium']`) —
-  `App.addEntry` (both the manual-calorie and AI-estimated branches),
-  `App.logDbItem`, `App.logFavorite`/`App.saveDbItemToFavorites`, and
-  `App.addNutrientSuggestion` (which carries over `NUTRIENT_FOODS`'
-  *authoritative* tags directly — don't re-guess for that path). Every
-  other path uses `guessNutrientsFromName(name)`, a plain keyword
-  match against `NUTRIENT_KEYWORDS` — genuinely useful signal since
-  people mostly describe food by its actual ingredients ("spinach
-  salad", "lentil soup"), but **not authoritative**: two different
-  "chicken salads" can differ a lot in what's actually in them. If you
-  extend `NUTRIENT_KEYWORDS`, keep it conservative — only match on a
-  real ingredient word, never infer from a vague description.
-- `nutrientCoverage(windowN)` counts, for each of the three nutrients,
-  how many of the last `windowN` *tracked* days had at least one food
-  entry tagging it — **not** an estimate of milligrams/mcg consumed or
-  a comparison to an actual RDA, since the underlying data is boolean
-  tags per food, not real quantities. "Gap over time" here means "days
-  with zero tagged source," which is a coarser but honest signal given
-  what's actually available without a real nutrition database/API.
-  The coverage panel highlights whichever of the three has the lowest
-  count and offers a one-tap targeted suggestion for it.
-- Only three nutrients are covered, matching exactly what was asked for
-  — this is not a general nutrition-gap-detection system. It's a
-  curated "here's something better within your
-  budget" nudge, not a tracked deficiency analysis. Be upfront about
-  that distinction if asked to extend it.
-
 ## Weight projection (BMR-adaptive)
 
 The "Trend & projection" panel used to project weight change with a single
@@ -261,9 +204,18 @@ was rebuilt to actually simulate it:
 
 ## Design system
 
-- Dark theme, ledger/accounting metaphor: food = "debit," burn = "credit,"
-  daily net = "balance." Don't rename this vocabulary casually — it's a
-  deliberate identity, not a placeholder.
+- **Panel headers are now plain "Food" / "Exercise"** — the original
+  "Debits — food" / "Credits — exercise" ledger-style labels were
+  explicitly renamed at the user's request (felt like unnecessary
+  jargon once the app wasn't literally branded "Ledger" anymore).
+  "Balance" and "Running balance" were deliberately kept — those read
+  as plain English in a calorie-tracking context, not accounting
+  jargon, so they weren't part of what needed fixing. The underlying
+  `--credit`/`--debit` CSS variable names, the `credit-text`/
+  `debit-text` CSS classes, and the JS balance-sign-convention
+  comments/naming were all left as internal identifiers — only the
+  user-visible label text changed. Don't reintroduce "Debits"/"Credits"
+  as display text if asked to touch this area again.
 - Color tokens are CSS custom properties defined in `:root` — `--credit`
   (green, good/deficit), `--debit` (red, bad/surplus), `--gold` (neutral
   accent), plus surface/text scale. Reuse these; don't introduce new raw
@@ -563,7 +515,7 @@ adapting task per exercise — see `WORKOUT_EXERCISES`,
   likely place a new field silently disappears.
 - **Marking the task done also logs real exercise entries** (with a
   rough calorie estimate scaled by bodyweight via `calsPerRepAt70kg` —
-  no AI call involved, same reasoning as the nutrient suggestions: this
+  no AI call involved, same reasoning as elsewhere in this app: this
   needs to work in the deployed build, not just inside an artifact) —
   it's not a separate gamified layer disconnected from the actual
   calorie tracking, it feeds the same `logs[date].exercise` array
