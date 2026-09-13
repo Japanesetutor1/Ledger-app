@@ -154,10 +154,11 @@ labels `computeBMR(settings)` as "BMR" (previously called it "baseline,"
 which was ambiguous in TDEE mode where baseline = BMR × activity, not
 raw BMR).
 
-## Nutrient-aware healthy suggestions
+## Nutrient-aware suggestions AND tracking
 
 The "Healthy pick within budget" button (food panel, above the food-db
-search) is deliberately **not** built on the AI estimation calls used
+search) and the "Nutrient coverage" panel (below the food/exercise
+panels) are deliberately **not** built on the AI estimation calls used
 elsewhere in this file (`estimateFoodCalories` etc.) — those only work
 inside a Claude.ai artifact, not the deployed/standalone build (see "AI
 features" section below), and this needed to actually work on the
@@ -168,21 +169,45 @@ person's phone. Instead:
   genuine source of: folate, iron, potassium. Same philosophy as
   `FOOD_DB` above it — best-estimate figures, not a lab-verified
   database, chosen to be instantly available offline.
-- `suggestNutrientFoods(remainingBudget)` filters to items that fit
-  the remaining calorie budget (plus a small +60kcal margin, since
-  whole-food portions are lumpy and these are suggestions, not a
-  commitment), then **shuffles** before greedily picking one item per
-  target nutrient. It used to sort cheapest-first instead of shuffling,
-  which deterministically surfaced the same 2-3 lowest-calorie items
-  (usually spinach twice) on every call with a generous budget — the
-  shuffle is what makes repeated use actually show variety. Don't
-  reintroduce a calorie sort here without re-adding some randomization,
-  or this regresses.
+- `suggestNutrientFoods(remainingBudget, priorityNutrient)` filters to
+  items that fit the remaining calorie budget (plus a small +60kcal
+  margin, since whole-food portions are lumpy and these are
+  suggestions, not a commitment), then **shuffles** before greedily
+  picking one item per target nutrient. It used to sort cheapest-first
+  instead of shuffling, which deterministically surfaced the same 2-3
+  lowest-calorie items (usually spinach twice) on every call with a
+  generous budget — the shuffle is what makes repeated use actually
+  show variety. Don't reintroduce a calorie sort here without re-adding
+  some randomization, or this regresses. The optional `priorityNutrient`
+  arg (used by the coverage panel's "Suggest X-rich foods" button)
+  biases all 3 picks toward that one nutrient instead of round-robin
+  covering all three — see `App.suggestForNutrient`.
+- **Tracking (this is the part that was added after the suggestions
+  feature shipped):** every food-logging path now tags the entry with a
+  `nutrients` array (subset of `['folate','iron','potassium']`) —
+  `App.addEntry` (both the manual-calorie and AI-estimated branches),
+  `App.logDbItem`, `App.logFavorite`/`App.saveDbItemToFavorites`, and
+  `App.addNutrientSuggestion` (which carries over `NUTRIENT_FOODS`'
+  *authoritative* tags directly — don't re-guess for that path). Every
+  other path uses `guessNutrientsFromName(name)`, a plain keyword
+  match against `NUTRIENT_KEYWORDS` — genuinely useful signal since
+  people mostly describe food by its actual ingredients ("spinach
+  salad", "lentil soup"), but **not authoritative**: two different
+  "chicken salads" can differ a lot in what's actually in them. If you
+  extend `NUTRIENT_KEYWORDS`, keep it conservative — only match on a
+  real ingredient word, never infer from a vague description.
+- `nutrientCoverage(windowN)` counts, for each of the three nutrients,
+  how many of the last `windowN` *tracked* days had at least one food
+  entry tagging it — **not** an estimate of milligrams/mcg consumed or
+  a comparison to an actual RDA, since the underlying data is boolean
+  tags per food, not real quantities. "Gap over time" here means "days
+  with zero tagged source," which is a coarser but honest signal given
+  what's actually available without a real nutrition database/API.
+  The coverage panel highlights whichever of the three has the lowest
+  count and offers a one-tap targeted suggestion for it.
 - Only three nutrients are covered, matching exactly what was asked for
-  — this is not a general nutrition-gap-detection system, and doesn't
-  track what the person has actually eaten against any nutrient target
-  over time (that would need per-food nutrient logging, a much bigger
-  schema change). It's a curated "here's something better within your
+  — this is not a general nutrition-gap-detection system. It's a
+  curated "here's something better within your
   budget" nudge, not a tracked deficiency analysis. Be upfront about
   that distinction if asked to extend it.
 
