@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ledger — Calorie &amp; Training Log</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#0a0612">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Ledger">
@@ -34,7 +34,14 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--bg);
+    background-color:#0a0612;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,255,242,0.045) 0px, rgba(0,255,242,0.045) 1px, transparent 1px, transparent 48px),
+      repeating-linear-gradient(90deg, rgba(255,43,214,0.035) 0px, rgba(255,43,214,0.035) 1px, transparent 1px, transparent 48px),
+      radial-gradient(ellipse 900px 600px at 8% -8%, rgba(255,43,214,0.16), transparent 60%),
+      radial-gradient(ellipse 900px 700px at 108% 8%, rgba(0,255,242,0.13), transparent 60%),
+      radial-gradient(ellipse 900px 800px at 50% 118%, rgba(123,47,247,0.14), transparent 62%);
+    background-repeat: repeat, repeat, no-repeat, no-repeat, no-repeat;
     color:var(--text);
     font-family:'IBM Plex Sans',sans-serif;
     font-size:14px;

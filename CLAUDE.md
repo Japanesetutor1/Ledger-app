@@ -262,6 +262,22 @@ was rebuilt to actually simulate it:
   hex colors for standard UI unless there's a real reason (the mascot's
   dynamic color is the one intentional exception — see below).
 - Typography: IBM Plex Mono for numbers/data, IBM Plex Sans for UI text.
+- **Page backdrop is a cyberpunk-style neon grid + glow treatment**,
+  layered directly on `body` as multiple `background-image` layers:
+  two `repeating-linear-gradient`s (a faint cyan horizontal grid, a
+  fainter magenta vertical grid, 48px spacing) plus three soft
+  `radial-gradient` glow blobs (magenta top-left, cyan top-right,
+  purple bottom-center) over a near-black purple base
+  (`background-color:#0a0612`). This is atmospheric only — it does
+  NOT touch `--credit`/`--debit`/`--gold` or any other functional
+  color token, which still carry their existing meaning everywhere
+  (deficit/surplus, neutral accent, etc.). If asked to lean further
+  into the cyberpunk look later, extend it through NEW tokens or the
+  backdrop treatment itself, not by reassigning the meaning-carrying
+  tokens — those are read by JS logic (`physiqueColor`, balance sign
+  conventions) as well as CSS, so changing what they point to has
+  reach well beyond how things look. `<meta name="theme-color">` was
+  updated to match (`#0a0612`) so the PWA status bar is consistent.
 
 ## The mascot ("Status" panel)
 
