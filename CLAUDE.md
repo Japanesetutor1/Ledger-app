@@ -146,6 +146,23 @@ it again if you add another standalone setting.
     The background-removal + outline processing above has to be applied
     identically to both frames or the outline will visibly shift/pulse
     during the blink.
+  - **Even a good img2img pair isn't pixel-identical outside the eyes**
+    — diffing Ranger's two source frames showed a faint but pervasive
+    shift across *every* edge (hair strands, cape folds, outfit trim),
+    not just the eyes. Crossfading the two full images made that read
+    as a global lighting/color flicker on every blink, not just an eye
+    movement. The fix isn't better color-matching of the whole image —
+    it's to stop crossfading two full frames at all. Instead: treat the
+    eyes-open frame as the single persistent base (`ranger-open.webp`),
+    and build the "closed" frame by pasting *only* a small hand-verified
+    eye-region crop from the closed source onto a copy of the open
+    frame, blended with a feathered-edge mask (~14px Gaussian falloff)
+    and a per-channel mean/std color match of that patch against the
+    base frame's own pixels in that region. Diff the result against the
+    base afterward and confirm it's *exactly* 0 outside the patch box
+    before shipping — that's the actual test that this worked, not just
+    eyeballing it. This is the general technique for any future
+    image-avatar class's blink pair, not a Ranger-specific fix.
   - Image-avatar classes **deliberately have no color-scheme variants**
     (recoloring painted art isn't a hex-swap the way the SVG rig is) —
     `getAvatarChoice()`/`settings.avatarScheme` still exists for SVG
