@@ -274,7 +274,32 @@
   .trend{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
   .nutrient-coverage{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:24px; }
   .workout-task{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:18px; }
-  .workout-task-head{ margin-bottom:10px; }
+  .workout-task-head{ margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .workout-day-tag{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color:var(--gold);
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:2px 9px;
+  }
+  .fitness-assessment{ background:var(--surface); border:1px solid var(--gold); border-radius:var(--radius); padding:16px; margin-bottom:18px; }
+  .fitness-assessment-head{ margin-bottom:4px; }
+  .fitness-assessment-head h2{ font-size:13px; margin:0; font-weight:600; }
+  .fitness-assessment-sub{ color:var(--text-dim); font-size:12px; line-height:1.5; margin:4px 0 14px; }
+  .fitness-q{ margin-bottom:14px; }
+  .fitness-q-label{ font-size:12.5px; color:var(--text); margin-bottom:7px; }
+  .fitness-opts{ display:flex; flex-wrap:wrap; gap:6px; }
+  .fitness-opt{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
+    border-radius:14px; padding:6px 12px; font-size:12px; cursor:pointer;
+  }
+  .fitness-opt:hover{ border-color:var(--gold); }
+  .fitness-opt.active{ border-color:var(--gold); color:var(--gold); background:var(--surface-3); }
+  .fitness-assessment-actions{ display:flex; align-items:center; gap:12px; margin-top:4px; }
+  .fitness-submit-btn{
+    background:var(--gold); color:#1a1508; border:none; border-radius:var(--radius); font-weight:700;
+    padding:9px 16px; font-size:13px; cursor:pointer;
+  }
+  .fitness-submit-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+  .fitness-skip-btn{ background:none; border:none; color:var(--text-faint); font-size:12px; cursor:pointer; }
+  .fitness-skip-btn:hover{ color:var(--text-dim); }
   .workout-task-head h2{ font-size:13px; margin:0; font-weight:600; }
   .workout-task-target{ font-size:15px; font-weight:600; color:var(--text); margin-bottom:10px; }
   .workout-task-target-done{ color:var(--text-dim); font-weight:500; }
@@ -1082,6 +1107,8 @@
   var nutrientSuggestions = null; // null = panel closed; [] or [...] = open with results
   var nutrientSuggestFocus = null; // which nutrient a targeted suggestion call was for, if any
   var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
+  var showFitnessAssessment = false; // force-show the assessment card even if already taken (Retake link)
+  var fitnessDraft = { pushup: null, squat: null, activity: null }; // in-progress answers before submit
 
   // ---------------- nutrient-dense suggestions ----------------
   // A small curated list of whole foods that are genuinely rich sources of
@@ -2016,20 +2043,71 @@
   // days); what was actually assigned and completed on a given day is
   // snapshotted onto logs[date].workoutTask so history doesn't shift
   // retroactively when the live target changes later.
+  //
+  // Exercises are grouped into a 4-day bodyweight split (arms, legs,
+  // back, full-body/"whatever else is necessary" — chest, shoulders,
+  // core) so a full week covers every major muscle group with no
+  // equipment, not just push-ups and squats forever. Movement choices
+  // are grounded in commonly-recommended no-equipment exercises for
+  // each muscle group (e.g. table/towel rows and supermans as the
+  // bodyweight-only answer for back work when there's no pull-up bar).
+  // The day advances by COMPLETION, not the calendar date — skipping a
+  // day doesn't skip a muscle group, it just waits for you.
+  var WORKOUT_DAY_TYPES = ['arms', 'legs', 'back', 'full'];
+  var WORKOUT_DAY_LABELS = { arms:'Arms', legs:'Legs', back:'Back', full:'Full body' };
   var WORKOUT_EXERCISES = {
     pushups: {
-      label: 'push-ups',
+      label: 'push-ups', dayType: 'arms',
       variants: ['Push-ups', 'Diamond push-ups', 'Archer push-ups', 'One-arm push-up progressions'],
       calsPerRepAt70kg: 0.40
     },
+    dips: {
+      label: 'triceps dips', dayType: 'arms',
+      variants: ['Chair dips', 'Straight-bar dips', 'Deep bench dips', 'Single-leg bench dips'],
+      calsPerRepAt70kg: 0.35
+    },
     squats: {
-      label: 'squats',
+      label: 'squats', dayType: 'legs',
       variants: ['Squats', 'Jump squats', 'Bulgarian split squats', 'Pistol squats'],
       calsPerRepAt70kg: 0.32
+    },
+    lunges: {
+      label: 'lunges', dayType: 'legs',
+      variants: ['Lunges', 'Walking lunges', 'Jump lunges', 'Bulgarian split lunges'],
+      calsPerRepAt70kg: 0.35
+    },
+    rows: {
+      label: 'table rows', dayType: 'back',
+      variants: ['Table/towel rows', 'Doorframe rows', 'Feet-elevated rows', 'Archer rows'],
+      calsPerRepAt70kg: 0.35
+    },
+    supermans: {
+      label: 'supermans', dayType: 'back',
+      variants: ['Supermans', 'Superman holds x2 count', 'Alternating supermans', 'Superman + row'],
+      calsPerRepAt70kg: 0.25
+    },
+    pikepushups: {
+      label: 'pike push-ups', dayType: 'full',
+      variants: ['Pike push-ups', 'Elevated pike push-ups', 'Wall handstand negatives', 'Handstand push-up progressions'],
+      calsPerRepAt70kg: 0.35
+    },
+    crunches: {
+      label: 'bicycle crunches', dayType: 'full',
+      variants: ['Bicycle crunches', 'Slow-tempo bicycle crunches', 'Weighted-feel bicycle crunches', 'Hanging-style leg raises'],
+      calsPerRepAt70kg: 0.20
     }
   };
   var WORKOUT_START_REPS = 10;
   var WORKOUT_LEVEL_UP_AT = 100;
+
+  function exercisesForDayType(dayType){
+    return Object.keys(WORKOUT_EXERCISES).filter(function(k){ return WORKOUT_EXERCISES[k].dayType === dayType; });
+  }
+  function currentWorkoutDayType(){
+    var idx = settings.workoutDayIndex;
+    if(typeof idx !== 'number' || idx < 0 || idx >= WORKOUT_DAY_TYPES.length) idx = 0;
+    return WORKOUT_DAY_TYPES[idx];
+  }
 
   function ensureWorkoutProgress(){
     if(!settings.workoutProgress) settings.workoutProgress = {};
@@ -2043,7 +2121,8 @@
 
   function workoutTaskName(){
     var progress = ensureWorkoutProgress();
-    var parts = Object.keys(WORKOUT_EXERCISES).map(function(key){
+    var keys = exercisesForDayType(currentWorkoutDayType());
+    var parts = keys.map(function(key){
       var def = WORKOUT_EXERCISES[key];
       var cur = progress[key];
       return cur.reps + ' ' + def.variants[cur.variantIndex].toLowerCase();
@@ -2077,6 +2156,63 @@
       return { variantIndex: nextIdx, reps: WORKOUT_START_REPS };
     }
     return { variantIndex: current.variantIndex, reps: raised };
+  }
+
+  // ---------------- fitness self-assessment ----------------
+  // A short, honest starting point instead of assigning everyone a flat
+  // 10 reps regardless of actual fitness level. Grounded in published
+  // push-up norms (beginners ~5, "average" 20s-somethings ~17-29,
+  // advanced 40+) rather than made up -- see CLAUDE.md for sources.
+  // Produces a 0-4 tier from three quick self-reports (push-up capacity,
+  // squat capacity, current activity frequency) and maps that tier to a
+  // starting rep count PER EXERCISE, since different movements have very
+  // different natural baselines (e.g. dips are harder than push-ups at
+  // the same fitness level; supermans/crunches are easier).
+  var FITNESS_PUSHUP_BANDS = [
+    { max:2,  tier:0, label:'0-2' },
+    { max:9,  tier:1, label:'3-9' },
+    { max:19, tier:2, label:'10-19' },
+    { max:34, tier:3, label:'20-34' },
+    { max:Infinity, tier:4, label:'35+' }
+  ];
+  var FITNESS_SQUAT_BANDS = [
+    { max:9,  tier:0, label:'0-9' },
+    { max:19, tier:1, label:'10-19' },
+    { max:34, tier:2, label:'20-34' },
+    { max:49, tier:3, label:'35-49' },
+    { max:Infinity, tier:4, label:'50+' }
+  ];
+  var FITNESS_ACTIVITY_BANDS = [
+    { tier:0, label:'Not currently active' },
+    { tier:1, label:'1-2 days a week' },
+    { tier:2, label:'3-4 days a week' },
+    { tier:3, label:'5+ days a week' }
+  ];
+  // Starting reps per exercise per tier (0=beginner .. 4=very fit),
+  // rounded to the nearest 5 for consistency with the progression system.
+  var WORKOUT_TIER_START_REPS = {
+    pushups:     [5, 10, 15, 25, 35],
+    dips:        [5, 8, 10, 15, 25],
+    squats:      [8, 10, 15, 25, 35],
+    lunges:      [5, 10, 12, 20, 30],
+    rows:        [5, 8, 10, 15, 25],
+    supermans:   [8, 10, 15, 20, 30],
+    pikepushups: [5, 8, 10, 15, 25],
+    crunches:    [8, 10, 15, 20, 30]
+  };
+
+  function computeFitnessTier(pushupTier, squatTier, activityTier){
+    return Math.round((pushupTier + squatTier + activityTier) / 3);
+  }
+  function applyFitnessAssessment(pushupTier, squatTier, activityTier){
+    var tier = computeFitnessTier(pushupTier, squatTier, activityTier);
+    var progress = ensureWorkoutProgress();
+    Object.keys(WORKOUT_TIER_START_REPS).forEach(function(key){
+      progress[key] = { variantIndex: 0, reps: WORKOUT_TIER_START_REPS[key][tier] };
+    });
+    settings.fitnessAssessment = { pushupTier:pushupTier, squatTier:squatTier, activityTier:activityTier, tier:tier, takenAt: Date.now() };
+    settings.workoutDayIndex = 0;
+    return tier;
   }
 
   function questsForDay(dateStr){
@@ -2271,6 +2407,7 @@
     }
     html += renderDateNav();
     html += renderSummary(t);
+    html += renderFitnessAssessment();
     html += renderWorkoutTask();
     html += renderWeightStrip();
     html += renderHydration();
@@ -2456,6 +2593,7 @@
 
     html += '<div class="settings-footer">' +
       '<button class="save-btn" onclick="App.saveSettingsFromForm()">Save baseline</button>' +
+      '<button class="reset-link" onclick="App.retakeFitnessAssessment()">Retake fitness check</button>' +
       '<button class="reset-link" onclick="App.switchProfile()">Switch profile</button>' +
       '<button class="reset-link" onclick="App.resetAll()">Reset all data</button>' +
       '</div>';
@@ -2533,25 +2671,56 @@
     return '<span class="' + cls + '">' + sign(cum) + Math.abs(round(cum)) + '</span>';
   }
 
+  function renderFitnessAssessment(){
+    var already = settings.fitnessAssessment && !showFitnessAssessment;
+    if(already) return '';
+
+    function optionRow(field, bands, currentVal){
+      return bands.map(function(b, i){
+        var active = currentVal === i;
+        return '<button type="button" class="fitness-opt' + (active ? ' active' : '') + '" onclick="App.setFitnessAnswer(\'' + field + '\',' + i + ')">' + esc(b.label) + '</button>';
+      }).join('');
+    }
+
+    var html = '<div class="fitness-assessment">';
+    html += '<div class="fitness-assessment-head"><h2>Quick fitness check</h2></div>';
+    html += '<p class="fitness-assessment-sub">Three quick questions so your starting reps actually match where you\'re at — not a flat number for everyone.</p>';
+
+    html += '<div class="fitness-q"><div class="fitness-q-label">How many push-ups can you do in a row?</div><div class="fitness-opts">' + optionRow('pushup', FITNESS_PUSHUP_BANDS, fitnessDraft.pushup) + '</div></div>';
+    html += '<div class="fitness-q"><div class="fitness-q-label">How many bodyweight squats can you do in a row?</div><div class="fitness-opts">' + optionRow('squat', FITNESS_SQUAT_BANDS, fitnessDraft.squat) + '</div></div>';
+    html += '<div class="fitness-q"><div class="fitness-q-label">How many days a week are you currently active (exercise, sports, brisk walking 30+ min)?</div><div class="fitness-opts">' + optionRow('activity', FITNESS_ACTIVITY_BANDS, fitnessDraft.activity) + '</div></div>';
+
+    var canSubmit = fitnessDraft.pushup != null && fitnessDraft.squat != null && fitnessDraft.activity != null;
+    html += '<div class="fitness-assessment-actions">';
+    html += '<button type="button" class="fitness-submit-btn" ' + (canSubmit ? '' : 'disabled') + ' onclick="App.submitFitnessAssessment()">Set my starting reps</button>';
+    html += '<button type="button" class="fitness-skip-btn" onclick="App.skipFitnessAssessment()">Skip for now</button>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
+
   function renderWorkoutTask(){
     var progress = ensureWorkoutProgress();
     var day = logs[currentDate];
     var isToday = currentDate === todayStr();
     var taskDoneToday = day && day.workoutTask && day.workoutTask.done;
+    var dayType = currentWorkoutDayType();
+    var dayLabel = WORKOUT_DAY_LABELS[dayType];
 
-    var targetLine = Object.keys(WORKOUT_EXERCISES).map(function(key){
+    var targetLine = exercisesForDayType(dayType).map(function(key){
       var def = WORKOUT_EXERCISES[key];
       var cur = progress[key];
       return def.variants[cur.variantIndex] + ' &times; ' + cur.reps;
     }).join(' &nbsp;+&nbsp; ');
 
     var html = '<div class="workout-task">';
-    html += '<div class="workout-task-head"><h2>Today\'s workout</h2></div>';
+    html += '<div class="workout-task-head"><h2>Today\'s workout</h2><span class="workout-day-tag">' + esc(dayLabel) + ' day</span></div>';
 
     if(taskDoneToday){
       var snap = day.workoutTask.snapshot;
+      var doneDayLabel = WORKOUT_DAY_LABELS[day.workoutTask.dayType] || dayLabel;
       var doneLine = Object.keys(snap).map(function(k){ return esc(snap[k].variant) + ' &times; ' + snap[k].reps; }).join(' + ');
-      html += '<div class="workout-task-target workout-task-target-done">' + doneLine + '</div>';
+      html += '<div class="workout-task-target workout-task-target-done">' + esc(doneDayLabel) + ': ' + doneLine + '</div>';
       html += '<div class="workout-task-feedback-tag">Completed — felt ' + esc(day.workoutTask.feedback) + '</div>';
     } else if(!isToday){
       html += '<div class="workout-task-target">' + targetLine + '</div>';
@@ -3040,7 +3209,10 @@
       activityMultiplier: activityMultiplier,
       avatarClass: settings.avatarClass,
       avatarScheme: settings.avatarScheme,
-      lastExportAt: settings.lastExportAt
+      lastExportAt: settings.lastExportAt,
+      workoutProgress: settings.workoutProgress,
+      workoutDayIndex: settings.workoutDayIndex,
+      fitnessAssessment: settings.fitnessAssessment
     };
     await saveSettings();
     settingsOpen = false;
@@ -3222,6 +3394,37 @@
     render();
   };
 
+  App.setFitnessAnswer = function(field, value){
+    fitnessDraft[field] = value;
+    render();
+  };
+
+  App.submitFitnessAssessment = async function(){
+    if(fitnessDraft.pushup == null || fitnessDraft.squat == null || fitnessDraft.activity == null) return;
+    var pushupTier = FITNESS_PUSHUP_BANDS[fitnessDraft.pushup].tier;
+    var squatTier = FITNESS_SQUAT_BANDS[fitnessDraft.squat].tier;
+    var activityTier = FITNESS_ACTIVITY_BANDS[fitnessDraft.activity].tier;
+    applyFitnessAssessment(pushupTier, squatTier, activityTier);
+    showFitnessAssessment = false;
+    fitnessDraft = { pushup: null, squat: null, activity: null };
+    await saveSettings();
+    render();
+  };
+
+  App.skipFitnessAssessment = async function(){
+    settings.fitnessAssessment = { skipped: true, takenAt: Date.now() };
+    showFitnessAssessment = false;
+    fitnessDraft = { pushup: null, squat: null, activity: null };
+    await saveSettings();
+    render();
+  };
+
+  App.retakeFitnessAssessment = function(){
+    showFitnessAssessment = true;
+    fitnessDraft = { pushup: null, squat: null, activity: null };
+    render();
+  };
+
   App.startWorkoutFeedback = function(){
     workoutFeedbackPending = true;
     render();
@@ -3235,22 +3438,31 @@
   App.completeWorkoutTask = async function(feedback){
     var progress = ensureWorkoutProgress();
     var day = ensureDay(currentDate);
+    var dayType = currentWorkoutDayType();
+    var keys = exercisesForDayType(dayType);
     var snapshot = {};
 
-    Object.keys(WORKOUT_EXERCISES).forEach(function(key){
+    keys.forEach(function(key){
       var def = WORKOUT_EXERCISES[key];
       var cur = progress[key];
       var cals = workoutExerciseCalories(key, cur.reps);
       day.exercise.push({ id: uid(), name: def.variants[cur.variantIndex] + ' x' + cur.reps, cals: cals, estimated: true });
       snapshot[key] = { variant: def.variants[cur.variantIndex], reps: cur.reps };
     });
-    day.workoutTask = { done: true, feedback: feedback, snapshot: snapshot };
+    day.workoutTask = { done: true, feedback: feedback, dayType: dayType, snapshot: snapshot };
 
     // Advance (or hold) each exercise's target for next time, based on
-    // how today's assigned reps felt.
-    Object.keys(WORKOUT_EXERCISES).forEach(function(key){
+    // how today's assigned reps felt -- only the exercises actually
+    // trained today, not the whole roster.
+    keys.forEach(function(key){
       progress[key] = advanceWorkoutStep(progress[key], key, feedback);
     });
+
+    // Move on to the next muscle group for next time. This advances on
+    // COMPLETION, not the calendar date, so skipping a day never skips a
+    // muscle group -- it just waits.
+    var curIdx = WORKOUT_DAY_TYPES.indexOf(dayType);
+    settings.workoutDayIndex = (curIdx + 1) % WORKOUT_DAY_TYPES.length;
 
     workoutFeedbackPending = false;
     await saveLogs();

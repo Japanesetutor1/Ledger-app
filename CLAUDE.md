@@ -462,12 +462,12 @@ was rebuilt to actually simulate it:
   against the dark panel background before calling it done (the demon's
   horns and wings needed a bone/skin-tinted fix for exactly this reason).
 
-## Adaptive workout progression
+## Adaptive workout progression AND full-body split + fitness assessment
 
 Replaces the old static "Get a workout in" quest with a specific,
-adapting task per exercise (currently push-ups and squats) — see
-`WORKOUT_EXERCISES`, `ensureWorkoutProgress`, `advanceWorkoutStep`,
-`workoutTaskName`, and the `renderWorkoutTask` card.
+adapting task per exercise — see `WORKOUT_EXERCISES`,
+`ensureWorkoutProgress`, `advanceWorkoutStep`, `workoutTaskName`, and the
+`renderWorkoutTask` card.
 
 - **State is split two ways on purpose.** `settings.workoutProgress`
   (per profile) holds the *live, forward-looking* target — what reps/
@@ -494,6 +494,49 @@ adapting task per exercise (currently push-ups and squats) — see
   "Knee push-ups") because day one was explicitly specified as "10
   push-ups and 10 squats" — don't insert an easier warm-up variant
   before index 0, that would silently contradict the spec.
+- **Full-body split across 4 rotating day-types**
+  (`WORKOUT_DAY_TYPES = ['arms','legs','back','full']`), each exercise
+  tagged with a `dayType`. Movement choices per group are grounded in
+  real no-equipment recommendations (web-searched, not invented):
+  push-ups + chair dips for arms; squats + lunges for legs; table/
+  towel rows + supermans for back (the standard bodyweight-only answer
+  when there's no pull-up bar); pike push-ups + bicycle crunches for
+  "full" (chest/shoulders/core — whatever the other three days don't
+  cover). `exercisesForDayType`/`currentWorkoutDayType` read
+  `settings.workoutDayIndex`. **The day advances on completion, not the
+  calendar date** (`App.completeWorkoutTask` increments it mod 4) — so
+  skipping a day never skips a muscle group, it just waits. Only the
+  exercises for *today's* day-type get shown, assigned calories, and
+  advanced when the task is completed — not the whole 8-exercise roster.
+- **Fitness self-assessment** (`renderFitnessAssessment`,
+  `FITNESS_PUSHUP_BANDS`/`FITNESS_SQUAT_BANDS`/`FITNESS_ACTIVITY_BANDS`,
+  `computeFitnessTier`, `applyFitnessAssessment`) sets *starting* reps
+  per exercise from three quick self-reports instead of a flat 10 for
+  everyone — grounded in published push-up norms (beginners ~5,
+  "average" 20-somethings ~17-29, advanced 40+; sources: FitnessVolt,
+  TopEndSports push-up calculator). Produces a 0-4 tier (rounded average
+  of the three band selections) and looks up a per-exercise starting rep
+  count from `WORKOUT_TIER_START_REPS` — different exercises have
+  different natural baselines at the same fitness level (e.g. dips are
+  harder than push-ups), don't collapse this into one shared number.
+  Shown once per profile (gated on `!settings.fitnessAssessment`,
+  `renderFitnessAssessment`'s `already` check), "Skip for now" sets
+  `{skipped:true}` and leaves the flat-10 defaults from
+  `ensureWorkoutProgress` in place, and it's re-triggerable anytime via
+  "Retake fitness check" in Settings (`App.retakeFitnessAssessment`,
+  sets the ephemeral `showFitnessAssessment` flag rather than clearing
+  the stored assessment, so cancelling out of a retake doesn't lose the
+  previous one).
+- **`App.saveSettingsFromForm` REBUILDS the whole `settings` object —
+  this bit the avatar picker once already (see the note near the top of
+  this file) and it bit workout progress here too during development:
+  an early version of this feature silently wiped
+  `workoutProgress`/`workoutDayIndex`/`fitnessAssessment` on every
+  baseline save, caught by an explicit before/after Playwright
+  comparison before shipping.** All three are now explicitly carried
+  over in that rebuild. If you add another new persisted setting
+  anywhere in this app, check this function — it's the single most
+  likely place a new field silently disappears.
 - **Marking the task done also logs real exercise entries** (with a
   rough calorie estimate scaled by bodyweight via `calsPerRepAt70kg` —
   no AI call involved, same reasoning as the nutrient suggestions: this
@@ -507,10 +550,13 @@ adapting task per exercise (currently push-ups and squats) — see
   mutates the live, forward-looking progression state. Past days with
   no snapshot just show the live current target as a preview, read-only.
 - If asked to add more exercises later, add an entry to
-  `WORKOUT_EXERCISES` with a `variants` array (index 0 = the plain
-  starting exercise) and a `calsPerRepAt70kg` estimate — the rest
-  (progression, leveling, snapshotting, quest integration) is generic
-  and doesn't need touching per-exercise.
+  `WORKOUT_EXERCISES` with a `dayType`, a `variants` array (index 0 =
+  the plain starting exercise), and a `calsPerRepAt70kg` estimate — the
+  rest (progression, leveling, snapshotting, quest integration, day
+  rotation) is generic and doesn't need touching per-exercise. If it's
+  a genuinely new day-type (not arms/legs/back/full), also add it to
+  `WORKOUT_DAY_TYPES` and `WORKOUT_DAY_LABELS`, and give it a row in
+  `WORKOUT_TIER_START_REPS` for the assessment to size it correctly.
 
 ## Gamification layer
 
