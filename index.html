@@ -92,7 +92,7 @@
 
   /* ---------- Summary ---------- */
   .summary{
-    display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
     background:var(--border); border:1px solid var(--border); border-radius:var(--radius);
     overflow:hidden; margin-bottom:24px;
   }
@@ -151,6 +151,41 @@
   .favorites-wrap{ border-bottom:1px solid var(--border); }
 
   .fooddb{ border-bottom:1px solid var(--border); padding:12px 14px; }
+  .nutrient-suggest{ padding:12px 14px 0; }
+  .nutrient-suggest-btn{
+    width:100%; background:var(--surface-2); border:1px dashed var(--credit-dim); color:var(--credit);
+    border-radius:var(--radius); padding:9px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+  }
+  .nutrient-suggest-btn:hover{ border-style:solid; border-color:var(--credit); }
+  .nutrient-suggest-panel{
+    margin-top:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:10px 12px;
+  }
+  .nutrient-suggest-lead{ color:var(--text-dim); font-size:11.5px; line-height:1.5; margin-bottom:8px; }
+  .nutrient-suggest-empty{ color:var(--text-faint); font-size:12px; margin-bottom:8px; }
+  .nutrient-suggest-row{
+    display:flex; align-items:center; gap:8px; padding:7px 2px; border-bottom:1px solid var(--border-soft);
+    font-size:12.5px;
+  }
+  .nutrient-suggest-row:last-of-type{ border-bottom:none; }
+  .nutrient-suggest-info{ flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .nutrient-suggest-name{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nutrient-suggest-tags{ display:flex; gap:4px; flex-wrap:wrap; }
+  .nutrient-tag{
+    background:var(--credit-dim); color:var(--credit); border-radius:8px; padding:1px 7px;
+    font-size:10px; text-transform:uppercase; letter-spacing:0.3px;
+  }
+  .nutrient-suggest-cals{ color:var(--text-dim); flex-shrink:0; }
+  .nutrient-suggest-row button{
+    background:var(--surface-3); border:1px solid var(--border); color:var(--text);
+    border-radius:var(--radius); padding:3px 9px; font-size:11.5px; cursor:pointer; flex-shrink:0;
+  }
+  .nutrient-suggest-row button:hover{ border-color:var(--gold); color:var(--gold); }
+  .nutrient-suggest-close{
+    width:100%; margin-top:6px; background:none; border:none; color:var(--text-faint);
+    font-size:11.5px; padding:4px; cursor:pointer;
+  }
+  .nutrient-suggest-close:hover{ color:var(--text-dim); }
   .fooddb input{
     width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
     border-radius:var(--radius); padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:8px;
@@ -1008,6 +1043,82 @@
   ];
 
   var dbSearchQuery = '';
+  var nutrientSuggestions = null; // null = panel closed; [] or [...] = open with results
+
+  // ---------------- nutrient-dense suggestions ----------------
+  // A small curated list of whole foods that are genuinely rich sources of
+  // three commonly under-consumed nutrients (folate, iron, potassium),
+  // used to power "Healthy pick within budget" (see suggestNutrientFoods).
+  // Deliberately NOT AI-generated: the AI estimation calls elsewhere in
+  // this app only work inside a Claude artifact, not the deployed/
+  // standalone build (see CLAUDE.md) -- this needs to actually work on
+  // the phone, so it's a hardcoded reference list, same philosophy as
+  // FOOD_DB above. Calorie figures are per the stated serving, best-
+  // estimate (not lab-verified). Nutrient tags are a genuine, well-known
+  // primary source for that nutrient at a meaningful fraction of daily
+  // needs per serving -- not exhaustive, not a substitute for a real
+  // nutrition database, just enough to point someone toward a better
+  // choice than an arbitrary snack.
+  var NUTRIENT_FOODS = [
+    {id:'nf_lentils', name:'Lentils, cooked (1 cup)', cals:230, nutrients:['folate','iron','potassium']},
+    {id:'nf_chickpeas', name:'Chickpeas, cooked (1 cup)', cals:270, nutrients:['folate','iron','potassium']},
+    {id:'nf_spinach_cooked', name:'Spinach, cooked (1 cup)', cals:40, nutrients:['folate','iron','potassium']},
+    {id:'nf_spinach_salad', name:'Baby spinach salad (2 cups raw)', cals:15, nutrients:['folate','iron','potassium']},
+    {id:'nf_edamame', name:'Edamame, steamed (1 cup)', cals:190, nutrients:['folate','iron','potassium']},
+    {id:'nf_black_beans', name:'Black beans, cooked (1 cup)', cals:225, nutrients:['folate','iron','potassium']},
+    {id:'nf_white_beans', name:'White beans, cooked (1 cup)', cals:250, nutrients:['iron','potassium']},
+    {id:'nf_avocado', name:'Avocado (1/2)', cals:120, nutrients:['folate','potassium']},
+    {id:'nf_banana', name:'Banana (1 medium)', cals:105, nutrients:['potassium']},
+    {id:'nf_sweet_potato', name:'Sweet potato, baked (1 medium)', cals:115, nutrients:['potassium']},
+    {id:'nf_potato', name:'Potato, baked with skin (1 medium)', cals:160, nutrients:['potassium']},
+    {id:'nf_salmon', name:'Salmon, baked (4 oz)', cals:230, nutrients:['potassium']},
+    {id:'nf_yogurt', name:'Plain Greek yogurt (1 cup)', cals:150, nutrients:['potassium']},
+    {id:'nf_edamame_snack', name:'Edamame, shell-on snack pack', cals:100, nutrients:['folate','iron','potassium']},
+    {id:'nf_asparagus', name:'Asparagus, roasted (1 cup)', cals:40, nutrients:['folate','potassium']},
+    {id:'nf_broccoli', name:'Broccoli, steamed (1 cup)', cals:55, nutrients:['folate','potassium']},
+    {id:'nf_orange', name:'Orange (1 medium)', cals:65, nutrients:['folate','potassium']},
+    {id:'nf_tofu', name:'Tofu, firm (1/2 cup)', cals:95, nutrients:['iron']},
+    {id:'nf_pumpkinseeds', name:'Pumpkin seeds, roasted (1 oz)', cals:150, nutrients:['iron']},
+    {id:'nf_beef', name:'Lean ground beef, cooked (4 oz)', cals:230, nutrients:['iron']},
+    {id:'nf_dark_chocolate', name:'Dark chocolate, 70%+ (1 oz)', cals:170, nutrients:['iron']},
+    {id:'nf_white_beans_soup', name:'White bean & kale soup (1.5 cups)', cals:210, nutrients:['iron','potassium','folate']}
+  ];
+  var NUTRIENT_LABELS = { folate:'folate', iron:'iron', potassium:'potassium' };
+
+  // Picks up to 3 items that fit the remaining calorie budget, trying to
+  // cover as many of the three target nutrients as possible across the
+  // picks rather than returning three items that all hit the same one.
+  // A small margin (remainingBudget + 60) is allowed since these are
+  // suggestions, not a hard commitment, and whole-food portions are lumpy.
+  function suggestNutrientFoods(remainingBudget){
+    var margin = 60;
+    var candidates = NUTRIENT_FOODS.filter(function(f){ return f.cals <= remainingBudget + margin; });
+    if(!candidates.length) return [];
+    // Shuffle rather than sort-by-calories: sorting cheapest-first made
+    // this deterministically suggest the same 2-3 lowest-calorie items
+    // (usually spinach twice) whenever the budget was generous. A fresh
+    // shuffle each call means a real variety of the list gets surfaced
+    // over repeated use, while still respecting the budget filter above.
+    candidates = candidates.slice();
+    for(var i=candidates.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=candidates[i]; candidates[i]=candidates[j]; candidates[j]=tmp;
+    }
+    var picks = [];
+    // First pass: greedily cover each of the three nutrients at least once.
+    ['folate','iron','potassium'].forEach(function(nutrient){
+      if(picks.length >= 3) return;
+      var match = candidates.find(function(f){
+        return f.nutrients.indexOf(nutrient) !== -1 && picks.indexOf(f) === -1;
+      });
+      if(match) picks.push(match);
+    });
+    // Fill any remaining slots with whatever's left of the shuffled list.
+    for(var k=0;k<candidates.length && picks.length < 3; k++){
+      if(picks.indexOf(candidates[k]) === -1) picks.push(candidates[k]);
+    }
+    return picks.slice(0,3);
+  }
 
   var DEFAULT_FAVORITES = {
     food: [
@@ -1140,7 +1251,18 @@
     var exBurn = (day.exercise||[]).reduce(function(a,e){ return a+e.cals; }, 0);
     var baseline = computeBaseline(settings);
     var totalBurn = (baseline||0) + exBurn;
-    var balance = totalBurn - intake; // positive = deficit (burned more than eaten)
+    // balance = intake - totalBurn: NEGATIVE means you ate less than you
+    // burned (a deficit -- the "good" direction for weight loss), POSITIVE
+    // means you ate more than you burned (a surplus). This matches how
+    // people actually read a signed deficit/surplus number -- deficit
+    // feels like "negative", not "positive" -- even though it's the
+    // opposite of the intuitive "credit/debit ledger" framing the rest of
+    // this app uses elsewhere. Every consumer of dayTotals().balance
+    // (avgBalance, cumulativeBalance, physiqueState, quests, the chart,
+    // the summary cards, the trend cell) was updated for this convention
+    // when it was introduced -- if you add a new consumer, negative means
+    // deficit/good, positive means surplus/bad.
+    var balance = intake - totalBurn;
     return { intake:intake, exBurn:exBurn, baseline:baseline, totalBurn:totalBurn, balance:balance, hasBaseline: baseline != null, tracked: (day.food.length>0 || day.exercise.length>0) };
   }
   function trackedDatesSorted(){
@@ -1325,7 +1447,10 @@
     if(n === 0) return { score: 0, days: 0, avg: null };
     var avg = avgBalance(n);
     if(avg == null) return { score: 0, days: 0, avg: null };
-    var score = clamp(-(avg / 300), -3, 3);
+    // avg is now negative-for-deficit already (see dayTotals), which is
+    // exactly the direction this score wants (negative score = lean/
+    // credit-colored) -- no negation needed here anymore.
+    var score = clamp(avg / 300, -3, 3);
     return { score: score, days: n, avg: avg };
   }
 
@@ -1769,9 +1894,9 @@
     var goal = settings.goal || 'maintain';
     var goalQuest;
     if(goal === 'lose'){
-      goalQuest = { name:'Finish the day in a deficit', done: t.tracked && t.balance > 0, xp: 25 };
+      goalQuest = { name:'Finish the day in a deficit', done: t.tracked && t.balance < 0, xp: 25 };
     } else if(goal === 'gain'){
-      goalQuest = { name:'Finish the day in a surplus', done: t.tracked && t.balance < 0, xp: 25 };
+      goalQuest = { name:'Finish the day in a surplus', done: t.tracked && t.balance > 0, xp: 25 };
     } else {
       goalQuest = { name:'Stay within 200 kcal of even', done: t.tracked && Math.abs(t.balance) <= 200, xp: 25 };
     }
@@ -2156,13 +2281,40 @@
   }
 
   function renderSummary(t){
-    var baselineNote = t.hasBaseline ? ('baseline ' + round(t.baseline)) : 'no baseline set';
-    var balanceClass = t.balance >= 0 ? 'credit' : 'debit';
-    var balanceWord = t.balance >= 0 ? 'deficit' : 'surplus';
+    var bmrVal = computeBMR(settings);
+
+    var burnedSub;
+    if(t.hasBaseline){
+      burnedSub = (settings.baselineMode === 'tdee')
+        ? ('BMR ' + round(bmrVal) + ' &times; ' + (settings.activityMultiplier||1.2) + ' activity + ' + round(t.exBurn) + ' exercise')
+        : ('BMR ' + round(bmrVal) + ' + ' + round(t.exBurn) + ' exercise');
+    } else {
+      burnedSub = 'no baseline set — only exercise counted';
+    }
+
+    // "Budget left" = totalBurn - intake: how many more calories you can
+    // eat today before you've used up everything you've burned. Positive
+    // = room left (green), negative = you've gone over (red). This is a
+    // different framing from "Balance" below on purpose -- one is an
+    // actionable "how much more can I eat" number, the other is a signed
+    // deficit/surplus reading of the day so far.
+    var budgetLeft = t.totalBurn - t.intake;
+    var budgetClass = budgetLeft >= 0 ? 'credit' : 'debit';
+    var budgetDisplay = budgetLeft >= 0 ? round(budgetLeft) : ('&minus;' + Math.abs(round(budgetLeft)));
+    var budgetSub = round(t.totalBurn) + ' budget &minus; ' + round(t.intake) + ' eaten';
+
+    // Balance = intake - totalBurn: negative = deficit (good), positive =
+    // surplus (bad) -- see the comment on dayTotals() for why this is the
+    // opposite sign of "budget left" above even though it's the same two
+    // underlying numbers.
+    var balanceClass = t.balance <= 0 ? 'credit' : 'debit';
+    var balanceWord = t.balance <= 0 ? 'deficit' : 'surplus';
+
     return (
       '<div class="summary">' +
         '<div class="cell"><div class="label">Eaten</div><div class="value debit num">' + round(t.intake) + '</div><div class="sub">' + (logs[currentDate]?(logs[currentDate].food||[]).length:0) + ' entries</div></div>' +
-        '<div class="cell"><div class="label">Burned</div><div class="value credit num">' + round(t.totalBurn) + '</div><div class="sub">' + baselineNote + ' + ' + round(t.exBurn) + ' exercise</div></div>' +
+        '<div class="cell"><div class="label">Burned</div><div class="value credit num">' + round(t.totalBurn) + '</div><div class="sub">' + burnedSub + '</div></div>' +
+        '<div class="cell"><div class="label">Budget left</div><div class="value ' + budgetClass + ' num">' + budgetDisplay + '</div><div class="sub">' + budgetSub + '</div></div>' +
         '<div class="cell"><div class="label">Balance</div><div class="value ' + balanceClass + ' num">' + sign(t.balance) + Math.abs(round(t.balance)) + '</div><div class="sub">' + balanceWord + ' today</div></div>' +
         '<div class="cell"><div class="label">Running balance</div><div class="value num">' + renderRunningBalance() + '</div><div class="sub">since first entry</div></div>' +
       '</div>'
@@ -2171,7 +2323,7 @@
 
   function renderRunningBalance(){
     var cum = cumulativeBalance();
-    var cls = cum >= 0 ? 'credit' : 'debit';
+    var cls = cum <= 0 ? 'credit' : 'debit'; // negative = net deficit over time = good
     return '<span class="' + cls + '">' + sign(cum) + Math.abs(round(cum)) + '</span>';
   }
 
@@ -2247,16 +2399,49 @@
     );
   }
 
+  function renderNutrientSuggestions(budgetLeft){
+    var html = '<div class="nutrient-suggest">';
+    html += '<button type="button" class="nutrient-suggest-btn" onclick="App.suggestHealthyFood()">Healthy pick within budget</button>';
+    if(nutrientSuggestions !== null){
+      if(nutrientSuggestions.length === 0){
+        html += '<div class="nutrient-suggest-panel">' +
+          '<div class="nutrient-suggest-empty">Nothing in this list fits what\'s left today (' + Math.max(0,round(budgetLeft)) + ' kcal) — that\'s alright, tomorrow\'s a fresh budget.</div>' +
+          '<button class="nutrient-suggest-close" onclick="App.closeNutrientSuggestions()">Close</button>' +
+        '</div>';
+      } else {
+        var rows = nutrientSuggestions.map(function(f){
+          var tags = f.nutrients.map(function(n){ return '<span class="nutrient-tag">' + NUTRIENT_LABELS[n] + '</span>'; }).join('');
+          return '<div class="nutrient-suggest-row">' +
+            '<div class="nutrient-suggest-info"><span class="nutrient-suggest-name">' + esc(f.name) + '</span>' +
+            '<span class="nutrient-suggest-tags">' + tags + '</span></div>' +
+            '<span class="nutrient-suggest-cals num">' + f.cals + '</span>' +
+            '<button onclick="App.addNutrientSuggestion(\'' + f.id + '\')">Add</button>' +
+          '</div>';
+        }).join('');
+        html += '<div class="nutrient-suggest-panel">' +
+          '<div class="nutrient-suggest-lead">Fits your ' + Math.max(0,round(budgetLeft)) + ' kcal left today, and covers folate, iron &amp; potassium — nutrients a lot of diets fall short on.</div>' +
+          rows +
+          '<button class="nutrient-suggest-close" onclick="App.closeNutrientSuggestions()">Close</button>' +
+        '</div>';
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
   function renderPanels(){
     var day = ensureDayReadOnly(currentDate);
     var food = day.food, exercise = day.exercise;
     var foodTotal = food.reduce(function(a,f){return a+f.cals;},0);
     var exTotal = exercise.reduce(function(a,e){return a+e.cals;},0);
+    var t = dayTotals(currentDate);
+    var budgetLeft = t.totalBurn - t.intake;
 
     return (
       '<div class="panels">' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="debit-text">Debits — food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
+          renderNutrientSuggestions(budgetLeft) +
           renderFoodDbSearch() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
@@ -2444,7 +2629,7 @@
           '</div>' +
         '</div>' +
         '<div class="chart-wrap">' + renderChart(chartDates) + '</div>' +
-        '<div class="cell trend-balance-cell"><div class="label">Avg daily balance (' + trendWindow + 'd)</div><div class="value ' + (activeAvg>=0?'credit':'debit') + '">' + (activeAvg!=null?(sign(activeAvg)+Math.abs(round(activeAvg))):'—') + '</div></div>' +
+        '<div class="cell trend-balance-cell"><div class="label">Avg daily balance (' + trendWindow + 'd)</div><div class="value ' + (activeAvg<=0?'credit':'debit') + '">' + (activeAvg!=null?(sign(activeAvg)+Math.abs(round(activeAvg))):'—') + '</div></div>' +
         projectionSection +
         '<div class="cell trend-eta-cell"><div class="label">Goal ETA</div><div class="value" style="font-size:12.5px;font-weight:400;line-height:1.5;">' + etaText + '</div></div>' +
       '</div>'
@@ -2467,8 +2652,10 @@
       var v = dayTotals(d).balance;
       var x = padL + gap*i + (gap-barW)/2;
       var h = Math.abs(v) * scale;
-      var y = v >= 0 ? zeroY - h : zeroY;
-      var color = v >= 0 ? 'var(--credit)' : 'var(--debit)';
+      // v is negative for a deficit -- keep that drawing UP (the intuitive
+      // "good" direction) and green, same visual as before the sign flip.
+      var y = v <= 0 ? zeroY - h : zeroY;
+      var color = v <= 0 ? 'var(--credit)' : 'var(--debit)';
       svg += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(h,1) + '" fill="' + color + '" rx="1"/>';
       var dd = new Date(d+'T00:00:00Z');
       var lbl = dd.toLocaleDateString(undefined,{day:'numeric',timeZone:'UTC'});
@@ -2711,6 +2898,28 @@
     if(!item) return;
     favorites.food.push({ id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true });
     await saveFavorites();
+    render();
+  };
+
+  App.suggestHealthyFood = function(){
+    var t = dayTotals(currentDate);
+    var budgetLeft = t.totalBurn - t.intake;
+    nutrientSuggestions = suggestNutrientFoods(budgetLeft);
+    render();
+  };
+
+  App.closeNutrientSuggestions = function(){
+    nutrientSuggestions = null;
+    render();
+  };
+
+  App.addNutrientSuggestion = async function(id){
+    var item = NUTRIENT_FOODS.find(function(f){ return f.id === id; });
+    if(!item) return;
+    var day = ensureDay(currentDate);
+    day.food.push({ id: uid(), name: item.name, cals: item.cals, estimated: true });
+    await saveLogs();
+    nutrientSuggestions = null;
     render();
   };
 

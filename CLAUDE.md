@@ -123,6 +123,69 @@ PIN. Read this before touching storage, `render()`, or anything under
   profile's `settings` are loaded — anything shown there needs to live on
   the `profiles` record itself, denormalized, kept in sync on change.
 
+## Calorie balance sign convention (flipped from the original)
+
+`dayTotals().balance` is now `intake - totalBurn`: **negative = deficit
+(good), positive = surplus (bad)**. This was the opposite way around
+originally (`totalBurn - intake`, positive = deficit) — it got flipped
+because a deficit reading as a *positive* number felt backwards to the
+person actually using the app. If you're touching anything that reads
+`.balance` (or `avgBalance`/`cumulativeBalance`, which just sum it),
+remember: negative is the "good" direction for weight loss, positive is
+the "good" direction for weight gain. Everything downstream was updated
+for this at the same time — `physiqueState()`'s score (no longer negates
+`avg`), `questsForDay()`'s deficit/surplus quest conditions, the chart's
+bar direction/color (deficit still draws up and green, just via `<= 0`
+now instead of `>= 0`), the summary "Balance" cell, "Running balance",
+and the trend panel's "Avg daily balance" cell. If you add a new place
+that reads balance, match this convention — don't reintroduce the old one
+in just one spot.
+
+**"Budget left" is a deliberately separate, oppositely-signed concept**
+from "Balance" even though both come from the same two numbers
+(`totalBurn`, `intake`). Budget left = `totalBurn - intake`: positive
+means calories still available today (green), negative means you've
+gone over (red) — this is intentionally NOT flipped, because "positive =
+room left" is the intuitive reading for a budget, same as "negative =
+deficit" is the intuitive reading for a balance. Don't try to make these
+two cells share one sign convention; they're answering different
+questions on purpose. The "Burned" cell's sub-text also now explicitly
+labels `computeBMR(settings)` as "BMR" (previously called it "baseline,"
+which was ambiguous in TDEE mode where baseline = BMR × activity, not
+raw BMR).
+
+## Nutrient-aware healthy suggestions
+
+The "Healthy pick within budget" button (food panel, above the food-db
+search) is deliberately **not** built on the AI estimation calls used
+elsewhere in this file (`estimateFoodCalories` etc.) — those only work
+inside a Claude.ai artifact, not the deployed/standalone build (see "AI
+features" section below), and this needed to actually work on the
+person's phone. Instead:
+
+- `NUTRIENT_FOODS` is a small hardcoded reference list (~22 real foods)
+  tagged with which of three commonly under-consumed nutrients they're a
+  genuine source of: folate, iron, potassium. Same philosophy as
+  `FOOD_DB` above it — best-estimate figures, not a lab-verified
+  database, chosen to be instantly available offline.
+- `suggestNutrientFoods(remainingBudget)` filters to items that fit
+  the remaining calorie budget (plus a small +60kcal margin, since
+  whole-food portions are lumpy and these are suggestions, not a
+  commitment), then **shuffles** before greedily picking one item per
+  target nutrient. It used to sort cheapest-first instead of shuffling,
+  which deterministically surfaced the same 2-3 lowest-calorie items
+  (usually spinach twice) on every call with a generous budget — the
+  shuffle is what makes repeated use actually show variety. Don't
+  reintroduce a calorie sort here without re-adding some randomization,
+  or this regresses.
+- Only three nutrients are covered, matching exactly what was asked for
+  — this is not a general nutrition-gap-detection system, and doesn't
+  track what the person has actually eaten against any nutrient target
+  over time (that would need per-food nutrient logging, a much bigger
+  schema change). It's a curated "here's something better within your
+  budget" nudge, not a tracked deficiency analysis. Be upfront about
+  that distinction if asked to extend it.
+
 ## Weight projection (BMR-adaptive)
 
 The "Trend & projection" panel used to project weight change with a single
