@@ -122,6 +122,24 @@ PIN. Read this before touching storage, `render()`, or anything under
   intentional rather than jarring. If touching PIN entry again, keep
   novel per-keystroke feedback (haptics, animations, sounds) on this
   lightweight path, not the full render path.
+- **Keypad buttons bind on `pointerdown`, not `click`.** Fixing the
+  full-render-per-tap issue above wasn't enough on a real phone — `click`
+  only fires after the browser's touch→pointerdown→pointerup→click
+  sequence resolves, which adds real latency per tap that no amount of
+  DOM-update speed on the JS side can claw back. `App.authKeyPress`/
+  `App.authBackspace` are bound via `onpointerdown` on `.auth-key`
+  instead, firing the instant a finger (or click) makes contact.
+  `.auth-key` also sets `touch-action:manipulation` as a second layer of
+  defense against any residual double-tap-zoom delay. Playwright's
+  `.click()` still exercises this correctly (it dispatches a full
+  pointer-event sequence including `pointerdown`), so the existing test
+  suite didn't need rewriting — verified via `test_pin_timing.js`, which
+  measured a full 4-digit entry (tapped ~150ms apart) completing in
+  ~820ms with the Confirm-PIN screen swap landing just ~13ms after the
+  last tap. If you add other rapid-tap UI elsewhere in this app later,
+  use the same `pointerdown` + `touch-action:manipulation` pattern rather
+  than plain `onclick` — this is a real, measurable difference on mobile,
+  not just a style preference.
 - Deleting a profile (`App.deleteProfile`) removes its three namespaced
   storage keys (and IndexedDB mirror copies) along with its `profiles`
   entry — this is real, immediate, irreversible deletion behind one
