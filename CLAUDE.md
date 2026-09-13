@@ -123,6 +123,46 @@ PIN. Read this before touching storage, `render()`, or anything under
   profile's `settings` are loaded — anything shown there needs to live on
   the `profiles` record itself, denormalized, kept in sync on change.
 
+## Weight projection (BMR-adaptive)
+
+The "Trend & projection" panel used to project weight change with a single
+flat number: `avgDailyBalance * daysAhead`. That's wrong for anything past
+a week or two — BMR is a function of body weight, so as someone loses (or
+gains), the same eating/exercise pattern burns a different number of
+calories per day, and a flat linear model doesn't capture that at all. This
+was rebuilt to actually simulate it:
+
+- **`simulateForward(days, windowN)`** walks forward one simulated day at a
+  time. It holds recent average intake and exercise steady (from
+  `avgIntake`/`avgExerciseBurn` over the last `windowN` tracked days — 7 or
+  30, whichever the trend toggle has selected) but **recomputes BMR from
+  the projected weight at each step**, so the modeled deficit shrinks as
+  projected weight drops (or grows as it rises). The UI shows this for
+  7/30/90-day horizons side by side, all built from the same
+  intake/exercise basis, so the person can see the rate visibly tapering
+  the further out the horizon goes — that tapering is the entire point,
+  don't "simplify" this back into a single multiplied rate.
+- **`simulateDaysToGoal(windowN, maxDays)`** does the same day-by-day walk
+  but runs until goal weight is crossed, for the "Goal ETA" line, instead
+  of dividing total kcal needed by today's flat average rate. This will
+  generally predict a **longer** time-to-goal than a naive linear
+  calculation would, for weight loss — that's correct behavior (the
+  deficit shrinks as you approach goal), not a bug to "fix" back toward
+  matching the old number.
+- Both require `hasBaselineInputs(settings)` (sex/age/height/weight) since
+  there's no BMR to recompute without them — shows an explanit prompt to
+  add stats otherwise, not a silently-wrong number.
+- **This is still a simplified model, not a physiological one** — say so
+  in the UI copy if you touch it. It doesn't model water-weight
+  fluctuation, and "metabolic adaptation" here is only the mechanical
+  effect of BMR depending on weight — real bodies also downregulate
+  somewhat beyond that as they diet, which this doesn't capture. The
+  honest framing is "a meaningfully better estimate than a straight line,"
+  not "an accurate forecast."
+- `kgToDisplayWeight(kg)` converts a raw kg delta to the user's display
+  unit (lb/kg) — use it for any new weight-delta display rather than
+  re-deriving the 0.453592 conversion inline again.
+
 ## Design system
 
 - Dark theme, ledger/accounting metaphor: food = "debit," burn = "credit,"

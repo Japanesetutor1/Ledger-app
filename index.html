@@ -251,6 +251,14 @@
   .trend-stats .cell{ background:var(--surface-2); padding:12px 14px; }
   .trend-stats .label{ color:var(--text-dim); font-size:11.5px; margin-bottom:5px; }
   .trend-stats .value{ font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; }
+  .trend-stats .sub{ color:var(--text-faint); font-size:11px; margin-top:4px; font-family:'IBM Plex Mono',monospace; }
+  .trend-balance-cell, .trend-eta-cell{
+    background:var(--surface-2); padding:12px 14px; border-radius:var(--radius);
+    border:1px solid var(--border); margin-top:12px;
+  }
+  .trend-projection{ margin-top:14px; }
+  .trend-projection-label{ color:var(--text-dim); font-size:12px; margin-bottom:8px; }
+  .trend-projection-note{ color:var(--text-faint); font-size:11px; line-height:1.55; margin-top:10px; }
   .trend-empty{ color:var(--text-faint); font-size:13px; padding:6px 2px; }
 
   /* ---------- Settings ---------- */
@@ -1168,6 +1176,22 @@
     var sum = dates.reduce(function(a,d){ return a + dayTotals(d).balance; }, 0);
     return sum / dates.length;
   }
+  // Separate intake/exercise averages (not just the net balance) are what
+  // the projection below actually needs: it holds *these* steady and lets
+  // the baseline burn recompute itself each simulated day, rather than
+  // assuming today's net deficit stays constant for months.
+  function avgIntake(n){
+    var dates = lastNTrackedDates(n).filter(function(d){ return dayTotals(d).tracked; });
+    if(!dates.length) return null;
+    var sum = dates.reduce(function(a,d){ return a + dayTotals(d).intake; }, 0);
+    return sum / dates.length;
+  }
+  function avgExerciseBurn(n){
+    var dates = lastNTrackedDates(n).filter(function(d){ return dayTotals(d).tracked; });
+    if(!dates.length) return null;
+    var sum = dates.reduce(function(a,d){ return a + dayTotals(d).exBurn; }, 0);
+    return sum / dates.length;
+  }
   function cumulativeBalance(){
     var dates = trackedDatesSorted().filter(function(d){ return d <= currentDate && dayTotals(d).tracked; });
     return dates.reduce(function(a,d){ return a + dayTotals(d).balance; }, 0);
@@ -1175,6 +1199,71 @@
   function unitLabel(){ return ((settings.units || 'imperial') === 'imperial') ? 'lb' : 'kg'; }
   function kcalToWeightUnit(kcal){
     return (settings.units || 'imperial') === 'imperial' ? kcal * LB_PER_KCAL : kcal * KG_PER_KCAL;
+  }
+  function kgToDisplayWeight(kg){
+    return (settings.units || 'imperial') === 'imperial' ? kg / 0.453592 : kg;
+  }
+
+  // ---------------- weight projection (BMR-adaptive) ----------------
+  // A flat "avg daily deficit x N days" projection is wrong for anything
+  // longer than a week or two: BMR is a function of body weight, so as
+  // someone loses weight, the same eating/exercise pattern burns fewer
+  // calories per day and the real-world rate of loss tapers off. This
+  // walks the projection forward one simulated day at a time, holding
+  // recent average intake and exercise steady but recomputing BMR from
+  // the *projected* weight at each step -- so a 90-day estimate reflects
+  // a shrinking deficit, not a straight line off a cliff.
+  //
+  // This still isn't a full physiological model (real metabolic
+  // adaptation goes beyond what a lower body weight alone predicts,
+  // water-weight fluctuation isn't modeled, etc.) -- it's a meaningfully
+  // better approximation than static linear extrapolation, not a
+  // medical-grade forecast. Keep the UI copy honest about that.
+  function simulateForward(days, windowN){
+    if(!hasBaselineInputs(settings)) return null;
+    var avgIn = avgIntake(windowN);
+    if(avgIn == null) return null; // nothing tracked yet to project from
+    var avgEx = avgExerciseBurn(windowN) || 0;
+    var s = settings;
+    var weight = s.weightKg;
+    var path = [weight];
+    for(var i=0;i<days;i++){
+      var bmr = computeBMR({ sex:s.sex, age:s.age, heightCm:s.heightCm, weightKg:weight });
+      var baseline = (s.baselineMode === 'tdee') ? bmr * (s.activityMultiplier || 1.2) : bmr;
+      var dailyBalance = (baseline + avgEx) - avgIn; // positive = deficit = loss
+      weight = weight - dailyBalance * KG_PER_KCAL;
+      if(weight < 30) { weight = 30; path.push(weight); break; } // sanity floor
+      path.push(weight);
+    }
+    return { startWeightKg: s.weightKg, endWeightKg: weight, deltaKg: weight - s.weightKg, days: path.length - 1, path: path };
+  }
+  // Same day-by-day simulation, but run until goal weight is crossed
+  // (instead of for a fixed number of days) -- so the ETA also reflects
+  // a shrinking deficit as weight approaches goal, rather than dividing
+  // total kcal needed by today's flat average rate.
+  function simulateDaysToGoal(windowN, maxDays){
+    if(!hasBaselineInputs(settings) || !settings.goalWeightKg) return null;
+    var avgIn = avgIntake(windowN);
+    if(avgIn == null) return null;
+    var avgEx = avgExerciseBurn(windowN) || 0;
+    var s = settings;
+    var weight = s.weightKg;
+    var goal = s.goalWeightKg;
+    var losing = goal < weight;
+    if(weight === goal) return 0;
+    for(var i=1;i<=maxDays;i++){
+      var bmr = computeBMR({ sex:s.sex, age:s.age, heightCm:s.heightCm, weightKg:weight });
+      var baseline = (s.baselineMode === 'tdee') ? bmr * (s.activityMultiplier || 1.2) : bmr;
+      var dailyBalance = (baseline + avgEx) - avgIn;
+      weight = weight - dailyBalance * KG_PER_KCAL;
+      if(losing && weight <= goal) return i;
+      if(!losing && weight >= goal) return i;
+      // Direction is wrong (trending away from goal) or has essentially
+      // stalled -- bail out rather than loop pointlessly to maxDays.
+      if(losing && dailyBalance <= 0.5 && i > 14) return null;
+      if(!losing && dailyBalance >= -0.5 && i > 14) return null;
+    }
+    return null; // wouldn't arrive within maxDays at this rate
   }
 
   // ---------------- AI estimation ----------------
@@ -2280,8 +2369,6 @@
   }
 
   function renderTrend(){
-    var dates7 = lastNTrackedDates(7).filter(function(d){return dayTotals(d).tracked;});
-    var dates30 = lastNTrackedDates(30).filter(function(d){return dayTotals(d).tracked;});
     var chartDates = lastNTrackedDates(14).filter(function(d){return dayTotals(d).tracked;});
 
     if(!chartDates.length){
@@ -2296,21 +2383,56 @@
     var avg7 = avgBalance(7);
     var avg30 = avgBalance(30);
     var activeAvg = trendWindow === 7 ? avg7 : avg30;
-    var weeklyRateKcal = activeAvg != null ? activeAvg * 7 : null;
-    var weeklyRateUnit = weeklyRateKcal != null ? kcalToWeightUnit(weeklyRateKcal) : null;
 
-    var etaText = 'Set a goal weight and current weight in settings to see an ETA.';
-    if(settings.goalWeightKg && settings.weightKg && activeAvg != null && Math.abs(activeAvg) > 1){
-      var deltaKcal = (settings.weightKg - settings.goalWeightKg) / KG_PER_KCAL; // kcal needed as deficit(+) to reach goal
-      var neededDirectionMatches = (deltaKcal > 0 && activeAvg > 0) || (deltaKcal < 0 && activeAvg < 0);
-      if(neededDirectionMatches){
-        var daysNeeded = Math.abs(deltaKcal / activeAvg);
-        var etaDate = new Date(Date.now() + daysNeeded*86400000);
-        etaText = 'At this rate, goal weight around ' + etaDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + ' (~' + Math.ceil(daysNeeded) + ' days).';
+    var hasBaseline = hasBaselineInputs(settings);
+    var proj7 = simulateForward(7, trendWindow);
+    var proj30 = simulateForward(30, trendWindow);
+    var proj90 = simulateForward(90, trendWindow);
+
+    function projCell(label, proj){
+      if(!proj){
+        return '<div class="cell"><div class="label">'+label+'</div><div class="value">—</div></div>';
+      }
+      var deltaDisp = kgToDisplayWeight(proj.deltaKg);
+      var endDisp = kgToDisplayWeight(proj.endWeightKg);
+      var cls = deltaDisp < 0 ? 'credit' : (deltaDisp > 0 ? 'debit' : '');
+      return '<div class="cell"><div class="label">'+label+'</div>' +
+        '<div class="value '+cls+'">'+sign(deltaDisp)+Math.abs(Math.round(deltaDisp*10)/10)+' '+unitLabel()+'</div>' +
+        '<div class="sub">&rarr; '+(Math.round(endDisp*10)/10)+' '+unitLabel()+'</div></div>';
+    }
+
+    var etaText;
+    if(!hasBaseline){
+      etaText = 'Add your stats in settings to see a projection.';
+    } else if(!settings.goalWeightKg){
+      etaText = 'Set a goal weight in settings to see an ETA.';
+    } else if(settings.weightKg === settings.goalWeightKg){
+      etaText = "You're already at your goal weight.";
+    } else {
+      var daysToGoal = simulateDaysToGoal(trendWindow, 1095);
+      if(daysToGoal == null){
+        etaText = "At your recent average, you're not on track to reach your goal weight — the trend is flat or moving the other way.";
       } else {
-        etaText = 'Current average balance is trending away from your goal weight, not toward it.';
+        var etaDate = new Date(Date.now() + daysToGoal*86400000);
+        etaText = 'At this rate, goal weight around ' + etaDate.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) + ' (~' + daysToGoal + ' days).';
       }
     }
+
+    var projectionSection = hasBaseline ? (
+      '<div class="trend-projection">' +
+        '<div class="trend-projection-label">If you keep up your ' + trendWindow + '-day average&hellip;</div>' +
+        '<div class="trend-stats">' +
+          projCell('In 7 days', proj7) +
+          projCell('In 30 days', proj30) +
+          projCell('In 90 days', proj90) +
+        '</div>' +
+        '<div class="trend-projection-note">Recalculates your BMR each simulated day as projected weight changes — a 90-day estimate isn\'t just the 7-day rate x 13. This is a modeled estimate, not a guarantee: it doesn\'t account for water-weight swings or metabolic adaptation beyond what lower body weight alone predicts.</div>' +
+      '</div>'
+    ) : (
+      '<div class="trend-projection">' +
+        '<div class="trend-empty">Add your sex, age, height, and weight in settings to project weight change — it needs your BMR to model how your burn shifts as weight changes.</div>' +
+      '</div>'
+    );
 
     return (
       '<div class="trend">' +
@@ -2322,11 +2444,9 @@
           '</div>' +
         '</div>' +
         '<div class="chart-wrap">' + renderChart(chartDates) + '</div>' +
-        '<div class="trend-stats">' +
-          '<div class="cell"><div class="label">Avg daily balance (' + trendWindow + 'd)</div><div class="value ' + (activeAvg>=0?'credit':'debit') + '">' + (activeAvg!=null?(sign(activeAvg)+Math.abs(round(activeAvg))):'—') + '</div></div>' +
-          '<div class="cell"><div class="label">Projected weekly change</div><div class="value">' + (weeklyRateUnit!=null ? (sign(weeklyRateUnit)+Math.abs(Math.round(weeklyRateUnit*100)/100)+' '+unitLabel()) : '—') + '</div></div>' +
-          '<div class="cell"><div class="label">Goal ETA</div><div class="value" style="font-size:12.5px;font-weight:400;line-height:1.5;">' + etaText + '</div></div>' +
-        '</div>' +
+        '<div class="cell trend-balance-cell"><div class="label">Avg daily balance (' + trendWindow + 'd)</div><div class="value ' + (activeAvg>=0?'credit':'debit') + '">' + (activeAvg!=null?(sign(activeAvg)+Math.abs(round(activeAvg))):'—') + '</div></div>' +
+        projectionSection +
+        '<div class="cell trend-eta-cell"><div class="label">Goal ETA</div><div class="value" style="font-size:12.5px;font-weight:400;line-height:1.5;">' + etaText + '</div></div>' +
       '</div>'
     );
   }
