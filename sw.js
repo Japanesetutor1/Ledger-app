@@ -1,5 +1,5 @@
-const CACHE = 'ledger-v12';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ranger-open.jpg', './ranger-closed.jpg'];
+const CACHE = 'ledger-v13';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ranger-open.webp', './ranger-closed.webp'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(ASSETS); }));

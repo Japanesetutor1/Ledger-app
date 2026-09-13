@@ -330,10 +330,10 @@
   .mascot-portrait{
     position:relative; width:100%; height:100%; border-radius:var(--radius);
     overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
-    transition:box-shadow .5s ease; background:#0e0f14;
+    transition:box-shadow .5s ease; background:none;
   }
   .mascot-portrait-img{
-    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center top;
+    position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center center;
     display:block; pointer-events:none; user-select:none;
   }
   .mascot-portrait-blink{ opacity:0; animation:portraitBlink 5.4s ease-in-out infinite; }
@@ -1117,7 +1117,7 @@
   // scheme swatch row is hidden for them and reactivity is a color-only
   // glow keyed off physiqueColor(score), not a pose/art change.
   var IMAGE_AVATARS = {
-    ranger: { open: 'ranger-open.jpg', closed: 'ranger-closed.jpg' }
+    ranger: { open: 'ranger-open.webp', closed: 'ranger-closed.webp' }
   };
 
   function mascotDisplay(score, classId, schemeIdx, opts){

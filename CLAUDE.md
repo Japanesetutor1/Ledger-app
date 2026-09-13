@@ -99,16 +99,53 @@ it again if you add another standalone setting.
   `IMAGE_AVATARS` entry fall straight back to the SVG rig with no other
   code changes needed.
   - Ranger is the first (and currently only) image-avatar class:
-    `ranger-open.jpg` / `ranger-closed.jpg`, AI-generated illustrated
+    `ranger-open.webp` / `ranger-closed.webp`, AI-generated illustrated
     portraits (not user-uploaded photos — this doesn't implicate the
     real-person-image caution below, but keep being deliberate about
     what any future generated art depicts).
+  - **Background is cut out, not the original photo backdrop.** The raw
+    generated art comes with its own (usually dark, atmospheric)
+    background; that gets removed (`rembg`, `u2net` model — small and
+    reliable, prefer it over the ~1GB default model which OOM'd the
+    sandbox once) so the character floats directly on the app's own
+    panel gradient — `.mascot-portrait` background is `none`
+    intentionally, and `object-fit:contain` (not `cover`) so the
+    silhouette isn't cropped by a rectangular frame. After cutting out,
+    binarize + feather the alpha (threshold ~90, ~1.2px Gaussian blur)
+    before doing anything else with it — the raw matte otherwise carries
+    faint semi-transparent halos from background embers/smoke that read
+    as smudges once she's on a different background.
+  - **Sticker outline:** a thin outline is drawn by dilating the cleaned
+    alpha mask outward (`ImageFilter.MaxFilter`, repeated per-pixel of
+    outline width, ~1px `GaussianBlur` after for a soft edge) and
+    compositing that as a solid-color layer behind the character. Color
+    matters more than it looks like it should: black was tried first and
+    is nearly invisible against this app's near-black panel gradient
+    (`#12161c`→`#0d1014`) — low luminance-contrast, not a bug — but the
+    user explicitly preferred black anyway after seeing both side by
+    side, so black it is (scaled to a thin ~3px dilation per their
+    request to tone it down further). If asked to redo this for another
+    class, mock up black vs. the app's `--gold` token on the *actual*
+    panel gradient before assuming either is "correct" — don't just
+    default to gold for contrast without asking, since it was a
+    deliberate aesthetic call, not an oversight.
+  - **File format: WebP, not JPEG or PNG**, for any image-avatar art
+    that needs transparency (i.e. anything with a cutout/outline
+    treatment like Ranger). JPEG can't do alpha at all. Plain PNG alpha
+    compresses badly for this kind of busy, photographic-detail
+    art — the first PNG attempt here was ~630KB per frame; the same
+    image as WebP (`quality=90, method=6`) came out ~90KB with the alpha
+    channel fully intact. Always compare actual file sizes before
+    picking a format, don't assume.
   - Each image-avatar class needs **two frames, same pose/framing/
     lighting** — eyes-open and eyes-closed — so the CSS blink crossfade
     (`.mascot-portrait-blink`, `@keyframes portraitBlink`) reads as a
     natural blink instead of a jump-cut. Getting a matching pair from an
     external image model works best via img2img/same-seed "close the
     eyes, change nothing else" editing, not two independent generations.
+    The background-removal + outline processing above has to be applied
+    identically to both frames or the outline will visibly shift/pulse
+    during the blink.
   - Image-avatar classes **deliberately have no color-scheme variants**
     (recoloring painted art isn't a hex-swap the way the SVG rig is) —
     `getAvatarChoice()`/`settings.avatarScheme` still exists for SVG
