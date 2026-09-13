@@ -496,6 +496,94 @@
   .quest-row.done .quest-name{ color:var(--text-dim); text-decoration:line-through; text-decoration-color:var(--text-faint); }
   .quest-name{ flex:1; color:var(--text); }
   .quest-xp{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); }
+
+  /* ---------------- profile / PIN gate ---------------- */
+  .auth-gate{
+    min-height:80vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px 16px; max-width:380px; margin:0 auto; gap:4px;
+  }
+  .auth-brand{
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:24px; letter-spacing:0.5px;
+    color:var(--text); margin-bottom:18px;
+  }
+  .auth-brand span{ color:var(--gold); }
+  .auth-title{ font-size:17px; font-weight:600; margin:0 0 4px; color:var(--text); }
+  .auth-sub{ font-size:13px; color:var(--text-dim); margin:0 0 18px; line-height:1.5; }
+  .auth-error{ color:var(--debit); font-size:12.5px; margin:8px 0 0; }
+  .auth-error-slot{ min-height:20px; color:var(--debit); font-size:12.5px; margin:10px 0 0; }
+
+  .auth-profile-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; width:100%; margin-top:6px;
+  }
+  .auth-quickswitch-label{
+    font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px;
+    margin-top:22px; margin-bottom:10px;
+  }
+  .auth-profile-tile{ position:relative; }
+  .auth-profile-btn{
+    width:100%; display:flex; flex-direction:column; align-items:center; gap:6px;
+    background:linear-gradient(160deg,#12161c,#0d1014); border:1px solid #262b34; border-radius:var(--radius);
+    padding:16px 6px 10px; cursor:pointer; transition:border-color .15s ease, transform .15s ease;
+  }
+  .auth-profile-btn:hover{ border-color:var(--gold); transform:translateY(-1px); }
+  .auth-avatar-initial{
+    width:44px; height:44px; border-radius:50%; background:var(--gold); color:#1a1508;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .auth-profile-name{ font-size:12px; color:var(--text); word-break:break-word; }
+  .auth-profile-delete{
+    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    background:#2a1518; border:1px solid var(--debit); color:var(--debit); font-size:13px; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .auth-add-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:none; border:1px dashed #363c47; border-radius:var(--radius); padding:16px 6px; cursor:pointer;
+    color:var(--text-dim); width:100%;
+  }
+  .auth-add-tile:hover{ border-color:var(--gold); color:var(--gold); }
+  .auth-add-plus{ font-size:20px; line-height:1; }
+
+  .auth-username-input{
+    width:100%; box-sizing:border-box; background:#0d1014; border:1px solid #262b34; border-radius:var(--radius);
+    color:var(--text); padding:11px 12px; font-size:15px; text-align:center; margin-top:4px;
+  }
+  .auth-username-input:focus{ outline:none; border-color:var(--gold); }
+
+  .auth-actions{ display:flex; gap:10px; margin-top:16px; width:100%; justify-content:center; }
+  .auth-actions-links{ margin-top:14px; }
+  .auth-primary{
+    background:var(--gold); color:#1a1508; border:none; border-radius:var(--radius); font-weight:700;
+    padding:10px 22px; font-size:14px; cursor:pointer; flex:1; max-width:200px;
+  }
+  .auth-cancel, .auth-link{
+    background:none; border:none; color:var(--text-dim); font-size:13px; cursor:pointer; padding:8px 10px;
+  }
+  .auth-cancel:hover, .auth-link:hover{ color:var(--text); }
+
+  .auth-pin-dots{ display:flex; gap:16px; justify-content:center; margin:10px 0 0; }
+  .auth-pin-dot{
+    width:16px; height:16px; border-radius:50%; border:1.5px solid #363c47; background:none; transition:background .1s ease;
+  }
+  .auth-pin-dot.filled{ background:var(--gold); border-color:var(--gold); }
+  .auth-pin-dots.shake{ animation:authShake .35s ease; }
+  @keyframes authShake{
+    0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-8px); } 40%{ transform:translateX(8px); }
+    60%{ transform:translateX(-6px); } 80%{ transform:translateX(6px); }
+  }
+
+  .auth-keypad{
+    display:grid; grid-template-columns:repeat(3,64px); gap:12px; justify-content:center; margin-top:6px;
+  }
+  .auth-key{
+    width:64px; height:64px; border-radius:50%; background:#12161c; border:1px solid #262b34; color:var(--text);
+    font-family:'IBM Plex Mono',monospace; font-size:20px; cursor:pointer; transition:background .12s ease;
+  }
+  .auth-key:hover{ background:#1a1f28; border-color:var(--gold); }
+  .auth-key:active{ background:#232a35; }
+  .auth-key-blank{ background:none; border:none; cursor:default; }
+  .auth-key-back{ font-size:18px; color:var(--text-dim); }
 </style>
 </head>
 <body>
@@ -586,6 +674,18 @@
       });
     }).catch(function(){ return null; });
   }
+  function idbDelete(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try{
+          var tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').delete(key);
+          tx.oncomplete = function(){ resolve(true); };
+          tx.onerror = function(){ resolve(false); };
+        }catch(e){ resolve(false); }
+      });
+    }).catch(function(){ return false; });
+  }
 
   if('serviceWorker' in navigator){
     window.addEventListener('load', function(){
@@ -606,6 +706,102 @@
   var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
+
+  // ---------------- profiles / PIN lock ----------------
+  // Multiple people can use this app on one device. This is a convenience
+  // switcher, NOT real account security — there's no server, so the PIN
+  // only stops casual access (someone picking up the phone), not anyone
+  // who can open the browser's storage inspector. The PIN itself is never
+  // stored in plaintext (SHA-256 + a random per-profile salt via Web
+  // Crypto), which is good practice regardless, but don't oversell what
+  // it protects against if asked. See CLAUDE.md.
+  var profiles = [];           // [{ id, username, salt, pinHash, createdAt }]
+  var activeProfileId = null;  // in-memory only — every fresh load re-locks
+  var authView = null;         // 'username' | 'pin' | null (unlocked)
+  var authMode = null;         // 'enter' | 'createNew' | 'createConfirm' | 'resetNew' | 'resetConfirm'
+  var authProfileId = null;
+  var authUsernameDraft = '';
+  var authPin = [];
+  var authPendingPlain = null;
+  var authError = '';
+  var authShake = false;
+  var authIsMigration = false;
+  var legacyStash = null;      // pre-profiles single-user data, staged for migration into the first profile
+
+  async function sha256Hex(str){
+    if(window.crypto && window.crypto.subtle){
+      try{
+        var enc = new TextEncoder().encode(str);
+        var buf = await window.crypto.subtle.digest('SHA-256', enc);
+        return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      }catch(e){ /* fall through to weak fallback below */ }
+    }
+    // Non-secure-context fallback (e.g. plain http). Weak, but this isn't
+    // real security to begin with — see the note above.
+    var hash = 0;
+    for(var i=0;i<str.length;i++){ hash = ((hash<<5)-hash+str.charCodeAt(i))|0; }
+    return 'w' + (hash>>>0).toString(16);
+  }
+  function randomSalt(){
+    if(window.crypto && window.crypto.getRandomValues){
+      var arr = new Uint8Array(8);
+      window.crypto.getRandomValues(arr);
+      return Array.from(arr).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    }
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+  function hashPin(pin, salt){ return sha256Hex(salt + ':' + pin); }
+
+  async function loadProfiles(){
+    var raw = null;
+    try{ var r = await window.storage.get('profiles'); raw = (r && r.value) ? r.value : null; }catch(e){}
+    if(!raw && usingLocalFallback){ raw = await idbGet('profiles'); }
+    profiles = raw ? JSON.parse(raw) : [];
+    if(usingLocalFallback && raw) idbSet('profiles', JSON.stringify(profiles));
+  }
+  async function saveProfiles(){
+    var json = JSON.stringify(profiles);
+    try{ await window.storage.set('profiles', json, false); }catch(e){}
+    if(usingLocalFallback) idbSet('profiles', json);
+  }
+
+  // One-time check for data saved before profiles existed. If found, the
+  // very first profile the user creates inherits it instead of starting
+  // empty — see finishProfileCreation().
+  async function checkLegacyMigration(){
+    var sRaw=null, lRaw=null, fRaw=null;
+    try{ var s = await window.storage.get('settings'); sRaw = (s && s.value) ? s.value : null; }catch(e){}
+    try{ var l = await window.storage.get('logs'); lRaw = (l && l.value) ? l.value : null; }catch(e){}
+    try{ var f = await window.storage.get('favorites'); fRaw = (f && f.value) ? f.value : null; }catch(e){}
+    if(!sRaw && usingLocalFallback) sRaw = await idbGet('settings');
+    if(!lRaw && usingLocalFallback) lRaw = await idbGet('logs');
+    if(!fRaw && usingLocalFallback) fRaw = await idbGet('favorites');
+    if(sRaw || lRaw){
+      legacyStash = { settings: sRaw, logs: lRaw, favorites: fRaw };
+      authIsMigration = true;
+    }
+    authView = 'username';
+  }
+
+  async function finishProfileCreation(newProfile){
+    profiles.push(newProfile);
+    await saveProfiles();
+    activeProfileId = newProfile.id;
+    if(authIsMigration && legacyStash){
+      if(legacyStash.settings){ await window.storage.set('settings:'+activeProfileId, legacyStash.settings, false); if(usingLocalFallback) idbSet('settings:'+activeProfileId, legacyStash.settings); }
+      if(legacyStash.logs){ await window.storage.set('logs:'+activeProfileId, legacyStash.logs, false); if(usingLocalFallback) idbSet('logs:'+activeProfileId, legacyStash.logs); }
+      if(legacyStash.favorites){ await window.storage.set('favorites:'+activeProfileId, legacyStash.favorites, false); if(usingLocalFallback) idbSet('favorites:'+activeProfileId, legacyStash.favorites); }
+    }
+    authIsMigration = false;
+    legacyStash = null;
+    authView = null;
+    authMode = null;
+    authPin = [];
+    authPendingPlain = null;
+    authError = '';
+    await loadState();
+    render();
+  }
 
   function todayStr(){
     var d = new Date(Date.now() - TZ_OFFSET_MS);
@@ -816,38 +1012,38 @@
   async function loadState(){
     // settings
     var sLocal = null;
-    try{ var s = await window.storage.get('settings'); sLocal = (s && s.value) ? s.value : null; }catch(e){}
-    var sIdb = usingLocalFallback ? await idbGet('settings') : null;
+    try{ var s = await window.storage.get('settings:'+activeProfileId); sLocal = (s && s.value) ? s.value : null; }catch(e){}
+    var sIdb = usingLocalFallback ? await idbGet('settings:'+activeProfileId) : null;
     var settingsRaw = sLocal || sIdb || null;
     settings = settingsRaw ? JSON.parse(settingsRaw) : {};
     if(usingLocalFallback && settingsRaw){
-      if(!sLocal) window.storage.set('settings', settingsRaw, false).catch(function(){});
-      if(!sIdb) idbSet('settings', settingsRaw);
+      if(!sLocal) window.storage.set('settings:'+activeProfileId, settingsRaw, false).catch(function(){});
+      if(!sIdb) idbSet('settings:'+activeProfileId, settingsRaw);
     }
 
     // logs
     var lLocal = null;
-    try{ var l = await window.storage.get('logs'); lLocal = (l && l.value) ? l.value : null; }catch(e){}
-    var lIdb = usingLocalFallback ? await idbGet('logs') : null;
+    try{ var l = await window.storage.get('logs:'+activeProfileId); lLocal = (l && l.value) ? l.value : null; }catch(e){}
+    var lIdb = usingLocalFallback ? await idbGet('logs:'+activeProfileId) : null;
     var logsRaw = lLocal || lIdb || null;
     logs = logsRaw ? JSON.parse(logsRaw) : {};
     if(usingLocalFallback && logsRaw){
-      if(!lLocal) window.storage.set('logs', logsRaw, false).catch(function(){});
-      if(!lIdb) idbSet('logs', logsRaw);
+      if(!lLocal) window.storage.set('logs:'+activeProfileId, logsRaw, false).catch(function(){});
+      if(!lIdb) idbSet('logs:'+activeProfileId, logsRaw);
     }
 
     // favorites
     var fLocal = null;
-    try{ var f = await window.storage.get('favorites'); fLocal = (f && f.value) ? f.value : null; }catch(e){}
-    var fIdb = usingLocalFallback ? await idbGet('favorites') : null;
+    try{ var f = await window.storage.get('favorites:'+activeProfileId); fLocal = (f && f.value) ? f.value : null; }catch(e){}
+    var fIdb = usingLocalFallback ? await idbGet('favorites:'+activeProfileId) : null;
     var favoritesRaw = fLocal || fIdb || null;
     if(favoritesRaw){
       favorites = JSON.parse(favoritesRaw);
       if(!favorites.food) favorites.food = [];
       if(!favorites.exercise) favorites.exercise = [];
       if(usingLocalFallback){
-        if(!fLocal) window.storage.set('favorites', favoritesRaw, false).catch(function(){});
-        if(!fIdb) idbSet('favorites', favoritesRaw);
+        if(!fLocal) window.storage.set('favorites:'+activeProfileId, favoritesRaw, false).catch(function(){});
+        if(!fIdb) idbSet('favorites:'+activeProfileId, favoritesRaw);
       }
     } else {
       // First run on both sides: seed with the common-foods starter set.
@@ -858,26 +1054,26 @@
   async function saveSettings(){
     var json = JSON.stringify(settings);
     try{
-      var r = await window.storage.set('settings', json, false);
+      var r = await window.storage.set('settings:'+activeProfileId, json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
-    if(usingLocalFallback) idbSet('settings', json);
+    if(usingLocalFallback) idbSet('settings:'+activeProfileId, json);
   }
   async function saveLogs(){
     var json = JSON.stringify(logs);
     try{
-      var r = await window.storage.set('logs', json, false);
+      var r = await window.storage.set('logs:'+activeProfileId, json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
-    if(usingLocalFallback) idbSet('logs', json);
+    if(usingLocalFallback) idbSet('logs:'+activeProfileId, json);
   }
   async function saveFavorites(){
     var json = JSON.stringify(favorites);
     try{
-      var r = await window.storage.set('favorites', json, false);
+      var r = await window.storage.set('favorites:'+activeProfileId, json, false);
       if(!r) storageError = true;
     }catch(e){ storageError = true; }
-    if(usingLocalFallback) idbSet('favorites', json);
+    if(usingLocalFallback) idbSet('favorites:'+activeProfileId, json);
   }
 
   function ensureDay(dateStr){
@@ -1556,8 +1752,81 @@
   }
 
   // ---------------- render ----------------
+  function renderProfileGate(){
+    var html = '<div class="auth-gate">';
+    html += '<div class="auth-brand">LEDGER<span>.</span></div>';
+
+    if(authView === 'username'){
+      var isFirstRun = profiles.length === 0 && !authIsMigration;
+      html += '<h2 class="auth-title">'+(authIsMigration ? 'Protect your existing data' : (isFirstRun ? 'Create a profile' : 'Enter your username'))+'</h2>';
+      if(authIsMigration) html += '<p class="auth-sub">This app now supports multiple people on one device. Pick a username and a 4-digit PIN to keep using your existing logs.</p>';
+      html += '<input type="text" id="authUsernameField" class="auth-username-input" placeholder="Username" value="'+esc(authUsernameDraft)+'" maxlength="24">';
+      if(authError) html += '<div class="auth-error">'+esc(authError)+'</div>';
+      html += '<div class="auth-actions">';
+      html += '<button type="button" class="auth-primary" onclick="App.authSubmitUsername()">Continue</button>';
+      html += '</div>';
+      if(profiles.length > 0 && !authIsMigration){
+        html += '<div class="auth-quickswitch-label">or pick a profile</div>';
+        html += '<div class="auth-profile-grid">';
+        profiles.forEach(function(p){
+          var initial = esc((p.username || '?').charAt(0).toUpperCase());
+          html += '<div class="auth-profile-tile">' +
+            '<button type="button" class="auth-profile-btn" onclick="App.authSelectProfile(\''+p.id+'\')">' +
+              '<span class="auth-avatar-initial">'+initial+'</span>' +
+              '<span class="auth-profile-name">'+esc(p.username)+'</span>' +
+            '</button>' +
+            '<button type="button" class="auth-profile-delete" title="Delete profile" onclick="App.deleteProfile(\''+p.id+'\')">&times;</button>' +
+          '</div>';
+        });
+        html += '</div>';
+      }
+    }
+
+    if(authView === 'pin'){
+      var promptText = '';
+      if(authMode === 'enter') promptText = 'Enter PIN';
+      else if(authMode === 'createNew' || authMode === 'resetNew') promptText = 'Set a 4-digit PIN';
+      else promptText = 'Confirm PIN';
+      html += '<h2 class="auth-title">'+promptText+'</h2>';
+      var pr = profiles.find(function(p){ return p.id === authProfileId; });
+      if(authMode === 'enter' && pr) html += '<p class="auth-sub">'+esc(pr.username)+'</p>';
+      else if((authMode === 'createNew' || authMode === 'createConfirm') && authUsernameDraft) html += '<p class="auth-sub">'+esc(authUsernameDraft)+'</p>';
+      html += '<div class="auth-pin-dots'+(authShake ? ' shake' : '')+'">';
+      for(var i=0;i<4;i++){ html += '<span class="auth-pin-dot'+(i<authPin.length ? ' filled' : '')+'"></span>'; }
+      html += '</div>';
+      html += '<div class="auth-error-slot">'+(authError ? esc(authError) : '')+'</div>';
+      html += '<div class="auth-keypad">';
+      ['1','2','3','4','5','6','7','8','9','','0','back'].forEach(function(k){
+        if(k === '') html += '<span class="auth-key auth-key-blank"></span>';
+        else if(k === 'back') html += '<button type="button" class="auth-key auth-key-back" onclick="App.authBackspace()">&#9003;</button>';
+        else html += '<button type="button" class="auth-key" onclick="App.authKeyPress(\''+k+'\')">'+k+'</button>';
+      });
+      html += '</div>';
+      html += '<div class="auth-actions auth-actions-links">';
+      if(authMode === 'enter') html += '<button type="button" class="auth-link" onclick="App.authForgotPin()">Forgot PIN?</button>';
+      html += '<button type="button" class="auth-link" onclick="App.authCancel()">Back</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function bindAuthHandlers(){
+    var el = document.getElementById('authUsernameField');
+    if(el){
+      el.focus();
+      el.addEventListener('keydown', function(e){ if(e.key === 'Enter') App.authSubmitUsername(); });
+    }
+  }
+
   function render(){
     var app = document.getElementById('app');
+    if(!activeProfileId){
+      app.innerHTML = renderProfileGate();
+      bindAuthHandlers();
+      return;
+    }
     var needsSetup = !hasBaselineInputs(settings);
     var t = dayTotals(currentDate);
 
@@ -1758,6 +2027,7 @@
 
     html += '<div class="settings-footer">' +
       '<button class="save-btn" onclick="App.saveSettingsFromForm()">Save baseline</button>' +
+      '<button class="reset-link" onclick="App.switchProfile()">Switch profile</button>' +
       '<button class="reset-link" onclick="App.resetAll()">Reset all data</button>' +
       '</div>';
 
@@ -2421,11 +2691,176 @@
     if(cwEl){ cwEl.addEventListener('keydown', function(e){ if(e.key==='Enter') App.addCustomWater(); }); }
   }
 
+  // ---------------- profile / PIN auth actions ----------------
+  App.authCancel = function(){
+    authError = '';
+    authPin = [];
+    authPendingPlain = null;
+    authProfileId = null;
+    authMode = null;
+    authUsernameDraft = '';
+    authView = 'username';
+    render();
+  };
+
+  App.authSubmitUsername = function(){
+    var el = document.getElementById('authUsernameField');
+    var name = (el ? el.value : '').trim();
+    if(!name){ authError = 'Enter a username.'; render(); return; }
+    authError = '';
+    authPin = [];
+    authPendingPlain = null;
+
+    var existing = profiles.find(function(p){ return p.username.toLowerCase() === name.toLowerCase(); });
+    if(existing){
+      // Known username -> go straight to PIN verification, same as tapping
+      // its quick-switch tile.
+      authUsernameDraft = existing.username;
+      authProfileId = existing.id;
+      authMode = 'enter';
+    } else {
+      // Unrecognized username -> treat as a new profile. No extra
+      // confirmation step; the PIN screen's own "<username>" subtitle
+      // makes it clear a new profile is being set up, not logged into.
+      authUsernameDraft = name;
+      authProfileId = null;
+      authMode = 'createNew';
+    }
+    authView = 'pin';
+    render();
+  };
+
+  App.authSelectProfile = function(id){
+    authProfileId = id;
+    authMode = 'enter';
+    authPin = [];
+    authError = '';
+    authView = 'pin';
+    render();
+  };
+
+  App.authForgotPin = function(){
+    var pr = profiles.find(function(p){ return p.id === authProfileId; });
+    if(!pr) return;
+    if(!confirm('Reset the PIN for "'+pr.username+'"? This app has no account server, so anyone with access to this device can do this — it\'s a convenience lock, not real account security. Continue?')) return;
+    authMode = 'resetNew';
+    authPin = [];
+    authPendingPlain = null;
+    authError = '';
+    render();
+  };
+
+  App.authKeyPress = function(d){
+    if(authPin.length >= 4) return;
+    authPin.push(d);
+    render();
+    if(authPin.length === 4){
+      setTimeout(function(){ submitAuthPin(); }, 120);
+    }
+  };
+
+  App.authBackspace = function(){
+    authPin.pop();
+    render();
+  };
+
+  async function submitAuthPin(){
+    var entered = authPin.join('');
+
+    if(authMode === 'enter'){
+      var pr = profiles.find(function(p){ return p.id === authProfileId; });
+      if(!pr){ authView = 'username'; render(); return; }
+      var h = await hashPin(entered, pr.salt);
+      if(h === pr.pinHash){
+        activeProfileId = pr.id;
+        authPin = []; authView = null; authMode = null; authError = '';
+        await loadState();
+        render();
+      } else {
+        authError = 'Incorrect PIN.';
+        authShake = true;
+        authPin = [];
+        render();
+        setTimeout(function(){ authShake = false; render(); }, 350);
+      }
+      return;
+    }
+
+    if(authMode === 'createNew' || authMode === 'resetNew'){
+      authPendingPlain = entered;
+      authPin = [];
+      authMode = authMode === 'createNew' ? 'createConfirm' : 'resetConfirm';
+      authError = '';
+      render();
+      return;
+    }
+
+    if(authMode === 'createConfirm' || authMode === 'resetConfirm'){
+      if(entered === authPendingPlain){
+        var salt = randomSalt();
+        var hash = await hashPin(entered, salt);
+        if(authMode === 'createConfirm'){
+          var newProfile = { id: 'p_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7), username: authUsernameDraft, salt: salt, pinHash: hash, createdAt: Date.now() };
+          authPendingPlain = null;
+          await finishProfileCreation(newProfile);
+        } else {
+          var pr2 = profiles.find(function(p){ return p.id === authProfileId; });
+          if(pr2){ pr2.salt = salt; pr2.pinHash = hash; await saveProfiles(); }
+          activeProfileId = authProfileId;
+          authPin = []; authView = null; authMode = null; authError = ''; authPendingPlain = null;
+          await loadState();
+          render();
+        }
+      } else {
+        authError = "PINs didn't match — start over.";
+        authShake = true;
+        authPin = [];
+        authPendingPlain = null;
+        authMode = authMode === 'createConfirm' ? 'createNew' : 'resetNew';
+        render();
+        setTimeout(function(){ authShake = false; render(); }, 350);
+      }
+    }
+  }
+
+  App.deleteProfile = async function(id){
+    var p = profiles.find(function(pr){ return pr.id === id; });
+    if(!p) return;
+    if(!confirm('Delete profile "'+p.username+'"? All of their data will be permanently erased. This cannot be undone.')) return;
+    profiles = profiles.filter(function(pr){ return pr.id !== id; });
+    await saveProfiles();
+    try{ await window.storage.delete('settings:'+id); }catch(e){}
+    try{ await window.storage.delete('logs:'+id); }catch(e){}
+    try{ await window.storage.delete('favorites:'+id); }catch(e){}
+    if(usingLocalFallback){ idbDelete('settings:'+id); idbDelete('logs:'+id); idbDelete('favorites:'+id); }
+    render();
+  };
+
+  App.switchProfile = function(){
+    activeProfileId = null;
+    settings = null; logs = {}; favorites = { food: [], exercise: [] };
+    settingsOpen = false;
+    authView = 'username';
+    authMode = null; authPin = []; authError = ''; authProfileId = null; authUsernameDraft = '';
+    render();
+  };
+
+  document.addEventListener('keydown', function(e){
+    if(authView !== 'pin') return;
+    if(e.key >= '0' && e.key <= '9'){ App.authKeyPress(e.key); }
+    else if(e.key === 'Backspace'){ App.authBackspace(); }
+  });
+
   window.App = App;
 
   // ---------------- init ----------------
   (async function init(){
-    await loadState();
+    await loadProfiles();
+    if(profiles.length === 0){
+      await checkLegacyMigration();
+    } else {
+      authView = 'username';
+    }
     render();
   })();
 })();

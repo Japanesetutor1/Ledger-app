@@ -1,4 +1,4 @@
-const CACHE = 'ledger-v14';
+const CACHE = 'ledger-v15';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ranger-open.webp', './ranger-closed.webp'];
 
 self.addEventListener('install', function(e){

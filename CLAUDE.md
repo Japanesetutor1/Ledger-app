@@ -46,6 +46,58 @@ carried over** in that rebuild or it gets silently wiped the next time the
 user saves their baseline. This already bit the avatar picker once; check
 it again if you add another standalone setting.
 
+## Profiles / PIN lock
+
+Multiple people can use this app on one device, gated by a username + 4-digit
+PIN. Read this before touching storage, `render()`, or anything under
+`auth*`.
+
+- **Not real account security — be honest about that if asked.** There's no
+  server, so the PIN only stops casual access (someone picking up the
+  phone), not anyone who opens the browser's storage inspector. The PIN is
+  still hashed (SHA-256 + a random per-profile salt, via Web Crypto — see
+  `hashPin`/`sha256Hex`/`randomSalt`), never stored in plaintext, as good
+  practice regardless. "Forgot PIN" has **no real recovery barrier** by
+  design (confirm the warning dialog, set a new PIN, done) — that's
+  intentional given there's no email/account to verify against, not a bug.
+- **Flow is username-first, always** — typing a name and hitting Continue
+  either routes straight to PIN verification (existing username, matched
+  case-insensitively) or straight to PIN creation (unrecognized username),
+  with no separate "sign up" vs "log in" choice for the user to make. A row
+  of tappable "quick switch" tiles (initial-letter avatar) sits below the
+  input as a shortcut for known profiles, but typing is the primary path —
+  don't reintroduce a tile-only picker as the main gate screen; that was
+  tried and explicitly replaced.
+- **Storage is namespaced per profile.** `settings`/`logs`/`favorites`
+  became `settings:<id>`/`logs:<id>`/`favorites:<id>` (see `loadState`,
+  `saveSettings`, `saveLogs`, `saveFavorites` — they all key off the
+  module-level `activeProfileId`). The `profiles` key (flat, not
+  namespaced) holds the array of `{id, username, salt, pinHash,
+  createdAt}`. `activeProfileId` is **in-memory only, never persisted** —
+  every fresh page load re-locks and shows the gate, by design (it's a PIN
+  *lock*, not a remembered login).
+- **Migration for data saved before profiles existed:** `init()` checks for
+  legacy flat `settings`/`logs` keys when `profiles` is empty
+  (`checkLegacyMigration`) and, if found, shows a one-time explanatory
+  screen instead of the normal create/login copy (`authIsMigration`
+  flag). The first profile created in that state inherits the legacy data
+  (`finishProfileCreation` copies `legacyStash` into the new namespaced
+  keys) — legacy flat keys are left in place afterward, unused but
+  harmless, rather than deleted, so there's zero risk of data loss from a
+  bug in the migration path itself.
+- **`render()` gates on `activeProfileId`** at the very top — no profile
+  unlocked means `renderProfileGate()` replaces the entire app, full stop.
+  Every other render function assumes a profile is already active; don't
+  call them from gate-related code.
+- Deleting a profile (`App.deleteProfile`) removes its three namespaced
+  storage keys (and IndexedDB mirror copies) along with its `profiles`
+  entry — this is real, immediate, irreversible deletion behind one
+  `confirm()`, not a soft-delete.
+- If asked to add more profile fields later (email, avatar preview on the
+  gate screen, etc.), remember the gate screen renders *before* that
+  profile's `settings` are loaded — anything shown there needs to live on
+  the `profiles` record itself, denormalized, kept in sync on change.
+
 ## Design system
 
 - Dark theme, ledger/accounting metaphor: food = "debit," burn = "credit,"
