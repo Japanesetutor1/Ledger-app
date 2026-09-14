@@ -608,6 +608,42 @@ is completed for the day.
   not a bug — the UI already shows a graceful "couldn't estimate" fallback
   to manual entry.
 
+## Fruit quick-add
+
+Tap-only alternative to typing a food name, for the 10 most common
+fruits (`FRUIT_QUICK_ADD`, `renderFruitQuickAdd`, sits above the
+food-db search in the Food panel). Built because the free-text path's
+"auto-fill calories" only actually works via AI estimation, which only
+works inside a Claude artifact (see "AI features" below) — for the
+deployed app most people use, typing a food name does NOT auto-populate
+calories at all, it just fails over to manual entry. This gives a
+genuinely tap-only, always-working path for at least the most common
+case (fruit) without depending on that.
+
+- Two-tap flow: tap a fruit chip (`App.toggleFruitQuickAdd`) to reveal
+  its 5 size options, tap a size (`App.logFruitSize`) to log it
+  immediately — no typing, ever. Tapping an already-open fruit's chip
+  again collapses it without logging (a toggle, not just an "open"
+  action).
+- **Sizing isn't uniformly "small/medium/large" across all 10** —
+  whole fruits people eat as a single unit (apple, banana, orange,
+  pear, mango) use small→extra-large sizing; fruits normally eaten
+  loose or cut (grapes, strawberries, blueberries, watermelon,
+  pineapple) use ½-to-3-cup portions instead, since "a small handful
+  of grapes" isn't a real serving concept the way "a small apple" is.
+  If asked to add more fruits, pick whichever sizing convention
+  actually matches how people eat that fruit, don't force one scheme
+  onto everything for consistency's sake.
+- Calorie figures are best-estimate against standard USDA-style values
+  for the stated portion — same honesty standard as `FOOD_DB` below,
+  not lab-verified for any specific piece of fruit.
+- `fruitQuickAddOpen` (which fruit's sizes are currently expanded, or
+  `null`) is transient UI state, not persisted — same pattern as
+  `nutrientSuggestions` was before that feature was removed.
+- Chips and size buttons use `onpointerdown` + `touch-action:
+  manipulation`, matching the PIN keypad fix above — this is meant to
+  feel instant on tap, so it gets the same treatment.
+
 ## Food database
 
 - `FOOD_DB` is a hardcoded array (~130 items) of common NYC foods with

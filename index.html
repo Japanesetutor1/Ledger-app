@@ -185,6 +185,25 @@
     padding:5px 8px 5px 12px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:7px;
     max-width:100%;
   }
+  .fruit-quickadd{ padding:12px 14px; border-bottom:1px solid var(--border); }
+  .fruit-quickadd-label{ color:var(--text-dim); font-size:11.5px; margin-bottom:8px; }
+  .fruit-chip-row{ display:flex; flex-wrap:wrap; gap:7px; }
+  .fruit-chip{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
+    padding:6px 13px; font-size:12.5px; color:var(--text); cursor:pointer;
+    touch-action:manipulation; user-select:none;
+  }
+  .fruit-chip:hover{ border-color:var(--gold); }
+  .fruit-chip.active{ border-color:var(--gold); color:var(--gold); background:var(--surface-3); }
+  .fruit-size-row{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .fruit-size-btn{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius);
+    padding:7px 11px; cursor:pointer; touch-action:manipulation; user-select:none;
+  }
+  .fruit-size-btn:hover{ border-color:var(--gold); }
+  .fruit-size-label{ font-size:12px; color:var(--text); }
+  .fruit-size-cals{ font-size:11px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; }
   .favorite-chip:hover{ border-color:var(--gold); }
   .favorite-chip .fav-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
   .favorite-chip .fav-cals{ color:var(--text-dim); flex-shrink:0; }
@@ -914,6 +933,65 @@
   // verified lab database, just careful best-estimate figures (grounded against
   // published nutrition data where available) so logging common meals doesn't
   // need an AI call or manual guesswork. "1 fist" ~= 1 cup for scoopable foods.
+  // ---------------- fruit quick-add ----------------
+  // Typing a food name and hoping calories get filled in isn't actually
+  // seamless -- this app's free-text path only auto-fills via AI
+  // estimation, which only works inside a Claude artifact (see "AI
+  // features" below), not the deployed build most people actually use.
+  // This is a genuinely tap-only alternative for common fruit: pick the
+  // fruit, pick the size, done -- no typing, no waiting on an API that
+  // might not even be reachable. Whole fruits (apple/banana/orange/pear/
+  // mango) use small-to-extra-large sizing; fruits normally eaten loose
+  // or cut (grapes/strawberries/blueberries/watermelon/pineapple) use
+  // cup-based portions instead, since "a small handful of grapes" isn't
+  // a real serving concept the way "a small apple" is. Calorie figures
+  // are best-estimate against standard USDA-style values for the stated
+  // portion, same honesty standard as FOOD_DB below — not lab-verified
+  // for any specific piece of fruit.
+  var FRUIT_QUICK_ADD = [
+    { name:'Apple', sizes:[
+      {label:'Extra small', cals:78}, {label:'Small', cals:85}, {label:'Medium', cals:95},
+      {label:'Large', cals:115}, {label:'Extra large', cals:135}
+    ]},
+    { name:'Banana', sizes:[
+      {label:'Extra small', cals:80}, {label:'Small', cals:90}, {label:'Medium', cals:105},
+      {label:'Large', cals:121}, {label:'Extra large', cals:135}
+    ]},
+    { name:'Orange', sizes:[
+      {label:'Extra small', cals:45}, {label:'Small', cals:53}, {label:'Medium', cals:62},
+      {label:'Large', cals:86}, {label:'Extra large', cals:105}
+    ]},
+    { name:'Pear', sizes:[
+      {label:'Extra small', cals:79}, {label:'Small', cals:94}, {label:'Medium', cals:101},
+      {label:'Large', cals:113}, {label:'Extra large', cals:130}
+    ]},
+    { name:'Mango', sizes:[
+      {label:'Extra small (½)', cals:50}, {label:'Small', cals:90}, {label:'Medium', cals:120},
+      {label:'Large', cals:150}, {label:'Extra large', cals:200}
+    ]},
+    { name:'Grapes', sizes:[
+      {label:'½ cup', cals:52}, {label:'1 cup', cals:104}, {label:'1.5 cups', cals:156},
+      {label:'2 cups', cals:208}, {label:'3 cups', cals:312}
+    ]},
+    { name:'Strawberries', sizes:[
+      {label:'½ cup', cals:27}, {label:'1 cup', cals:53}, {label:'1.5 cups', cals:80},
+      {label:'2 cups', cals:106}, {label:'3 cups', cals:159}
+    ]},
+    { name:'Blueberries', sizes:[
+      {label:'½ cup', cals:42}, {label:'1 cup', cals:84}, {label:'1.5 cups', cals:126},
+      {label:'2 cups', cals:168}, {label:'3 cups', cals:252}
+    ]},
+    { name:'Watermelon', sizes:[
+      {label:'½ cup', cals:23}, {label:'1 cup', cals:46}, {label:'1.5 cups', cals:69},
+      {label:'2 cups', cals:92}, {label:'3 cups', cals:138}
+    ]},
+    { name:'Pineapple', sizes:[
+      {label:'½ cup', cals:41}, {label:'1 cup', cals:82}, {label:'1.5 cups', cals:123},
+      {label:'2 cups', cals:164}, {label:'3 cups', cals:246}
+    ]}
+  ];
+  var fruitQuickAddOpen = null; // null = collapsed; fruit name = expanded showing its 5 sizes
+
   var FOOD_DB = [
     // Pizza
     {id:'db_pz_cheese', name:'Cheese pizza slice', category:'Pizza', unit:'1 slice', cals:285},
@@ -2860,6 +2938,7 @@
       '<div class="panels">' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
+          renderFruitQuickAdd() +
           renderFoodDbSearch() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
@@ -2909,6 +2988,35 @@
         '<button onclick="App.logDbItem(\'' + it.id + '\')">Add</button>' +
       '</div>';
     }).join('');
+  }
+
+  function renderFruitQuickAdd(){
+    var chips = FRUIT_QUICK_ADD.map(function(f){
+      var active = fruitQuickAddOpen === f.name;
+      return '<button type="button" class="fruit-chip' + (active ? ' active' : '') + '" onpointerdown="App.toggleFruitQuickAdd(\'' + f.name + '\')">' + esc(f.name) + '</button>';
+    }).join('');
+
+    var sizeRow = '';
+    if(fruitQuickAddOpen){
+      var fruit = FRUIT_QUICK_ADD.find(function(f){ return f.name === fruitQuickAddOpen; });
+      if(fruit){
+        var sizes = fruit.sizes.map(function(s, si){
+          return '<button type="button" class="fruit-size-btn" onpointerdown="App.logFruitSize(\'' + fruit.name + '\',' + si + ')">' +
+            '<span class="fruit-size-label">' + esc(s.label) + '</span>' +
+            '<span class="fruit-size-cals">' + s.cals + ' kcal</span>' +
+          '</button>';
+        }).join('');
+        sizeRow = '<div class="fruit-size-row">' + sizes + '</div>';
+      }
+    }
+
+    return (
+      '<div class="fruit-quickadd">' +
+        '<div class="fruit-quickadd-label">Quick add: fruit</div>' +
+        '<div class="fruit-chip-row">' + chips + '</div>' +
+        sizeRow +
+      '</div>'
+    );
   }
 
   function renderFoodDbSearch(){
@@ -3305,6 +3413,23 @@
     dbSearchQuery = v;
     var el = document.getElementById('foodDbResults');
     if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
+  };
+
+  App.toggleFruitQuickAdd = function(fruitName){
+    fruitQuickAddOpen = (fruitQuickAddOpen === fruitName) ? null : fruitName;
+    render();
+  };
+
+  App.logFruitSize = async function(fruitName, sizeIndex){
+    var fruit = FRUIT_QUICK_ADD.find(function(f){ return f.name === fruitName; });
+    if(!fruit) return;
+    var size = fruit.sizes[sizeIndex];
+    if(!size) return;
+    var day = ensureDay(currentDate);
+    day.food.push({ id: uid(), name: fruit.name + ' (' + size.label + ')', cals: size.cals, estimated: true });
+    fruitQuickAddOpen = null;
+    await saveLogs();
+    render();
   };
 
   App.logDbItem = async function(id){
