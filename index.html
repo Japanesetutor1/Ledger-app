@@ -549,7 +549,10 @@
   .status-row1{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
   .status-titles{ display:flex; align-items:baseline; gap:10px; }
   .status-level{ font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:15px; color:var(--status-color,var(--gold)); }
-  .status-title-word{ font-size:12.5px; color:var(--text-dim); }
+  .hunter-rank{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:0.5px;
+    color:var(--gold); text-shadow:0 0 6px rgba(201,164,76,0.4);
+  }
   .status-state{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--status-color,var(--gold)); }
   .xp-bar-outer{ height:7px; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; overflow:hidden; margin-bottom:6px; }
   .xp-bar-inner{ height:100%; background:var(--status-color,var(--gold)); transition:width .5s ease; }
@@ -2447,12 +2450,17 @@
     var curFloor = xpForLevel(level);
     var nextFloor = xpForLevel(level+1);
     var progress = nextFloor > curFloor ? (xp - curFloor) / (nextFloor - curFloor) : 1;
-    var titles = [
-      [1,'Novice'], [3,'Adept'], [6,'Vanguard'], [10,'Elite'], [15,'Ascendant']
+    // Hunter Rank, not a generic RPG title -- this is the actual core
+    // progress mechanic from Solo Leveling (E-rank is the weakest
+    // classification, S-rank the strongest), matching the app's focus
+    // on one person's own long-term progress rather than a vague
+    // "Adept/Vanguard"-style title ladder.
+    var ranks = [
+      [1,'E'], [3,'D'], [6,'C'], [10,'B'], [15,'A'], [20,'S']
     ];
-    var title = titles[0][1];
-    titles.forEach(function(t){ if(level >= t[0]) title = t[1]; });
-    return { xp:xp, level:level, curFloor:curFloor, nextFloor:nextFloor, progress:clamp(progress,0,1), title:title };
+    var rank = ranks[0][1];
+    ranks.forEach(function(r){ if(level >= r[0]) rank = r[1]; });
+    return { xp:xp, level:level, curFloor:curFloor, nextFloor:nextFloor, progress:clamp(progress,0,1), rank:rank };
   }
 
   function currentStreak(){
@@ -2649,7 +2657,7 @@
           quoteHtml +
           '<div class="status-main">' +
             '<div class="status-row1">' +
-              '<div class="status-titles"><span class="status-level num">Lv.'+lvl.level+'</span><span class="status-title-word">'+lvl.title+'</span></div>' +
+              '<div class="status-titles"><span class="status-level num">Lv.'+lvl.level+'</span><span class="hunter-rank">['+lvl.rank+'-RANK]</span></div>' +
               '<span class="status-state">'+label.name+'</span>' +
             '</div>' +
             '<div class="xp-bar-outer"><div class="xp-bar-inner" style="width:'+Math.round(lvl.progress*100)+'%"></div></div>' +
@@ -2659,7 +2667,7 @@
           '</div>' +
         '</div>' +
         '<div class="quests">' +
-          '<div class="quests-head"><h2>Today\'s quests</h2><span class="streak num">'+streak+'-day streak</span></div>' +
+          '<div class="quests-head"><h2>Daily Quest</h2><span class="streak num">'+streak+'-day streak</span></div>' +
           '<ul class="quest-list">'+questsHtml+'</ul>' +
         '</div>' +
       '</div>'

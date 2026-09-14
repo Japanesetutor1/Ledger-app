@@ -590,12 +590,31 @@ is completed for the day.
 
 ## Gamification layer
 
-- XP/Level and "Today's quests" are **fully derived** from `logs` on every
-  render — there is no separate stored XP counter. `questsForDay(date)`
-  defines the quest set (goal-aware: different quest for lose/gain/
-  maintain), `xpForDay` sums completed quest rewards for one day, `totalXP`
-  sums across all tracked days. Keep it derived — don't add a mutable XP
-  field, it'll drift from the log data.
+- XP/Level and the "Daily Quest" list are **fully derived** from `logs`
+  on every render — there is no separate stored XP counter.
+  `questsForDay(date)` defines the quest set (goal-aware: different
+  quest for lose/gain/maintain), `xpForDay` sums completed quest
+  rewards for one day, `totalXP` sums across all tracked days. Keep it
+  derived — don't add a mutable XP field, it'll drift from the log data.
+- **The quest section is called "Daily Quest" (singular), not "Today's
+  quests"** — this is deliberately the actual Solo Leveling term (the
+  System's recurring mandatory task), not a generic label, per an
+  explicit ask to lean into that theme. Don't casually revert this to
+  generic wording.
+- **`levelInfo().rank` is a Hunter Rank (E/D/C/B/A/S), not a generic RPG
+  title.** This replaced an earlier "Novice/Adept/Vanguard/Elite/
+  Ascendant" title ladder — Hunter Rank is Solo Leveling's actual core
+  progress mechanic (E is the weakest classification, S the strongest),
+  which is a more recognizable and more on-theme way to represent "this
+  person's own long-term progress" than a made-up title system. Displayed
+  as a bracketed HUD-style badge (`.hunter-rank`, e.g. "[E-RANK]") next
+  to the level number — this is a deliberately sparse, single
+  application of that bracket/HUD convention, not a pattern to spread
+  across every header; the ask was to get *cleaner*, not add more
+  chrome everywhere. If asked to lean further into the Solo Leveling
+  aesthetic later, prefer reinforcing this one mechanic (rank-up
+  moments, rank-gated content) over decorating more of the UI with
+  system-window styling.
 
 ## AI features (only work inside Claude, not the standalone/Railway build)
 
