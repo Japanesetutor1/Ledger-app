@@ -368,6 +368,11 @@
   .backup-reminder-actions button:first-child{ background:#5fa8d3; color:#0d1720; }
   .backup-reminder-actions .reminder-dismiss{ background:none; border:1px solid var(--border); color:var(--text-dim); }
   .backup-reminder-actions .reminder-dismiss:hover{ color:var(--text); border-color:var(--text-dim); }
+  .food-reminder{ border-color:#e0a85f; }
+  .food-reminder-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .food-reminder-actions button:first-child{ background:#e0a85f; color:#1a1206; }
+  .food-reminder-actions .reminder-dismiss{ background:none; border:1px solid var(--border); color:var(--text-dim); }
+  .food-reminder-actions .reminder-dismiss:hover{ color:var(--text); border-color:var(--text-dim); }
 
   .loading{ color:var(--text-dim); padding:40px 0; text-align:center; font-family:'IBM Plex Mono',monospace; }
 
@@ -786,6 +791,7 @@
   var settingsOpen = false;
   var avatarPickerOpen = false;
   var reminderDismissed = false;
+  var foodReminderDismissed = false; // per-session only, mirrors reminderDismissed
   var trendWindow = 7;
   var storageError = false;
 
@@ -1242,6 +1248,19 @@
     if(!settings.lastExportAt) return "You haven't exported a backup yet — a quick safety net against your phone clearing local data.";
     var days = Math.floor((Date.now() - settings.lastExportAt) / 86400000);
     return "It's been " + days + " days since your last backup export.";
+  }
+
+  // A gentle nudge if the day is getting late and nothing's logged yet —
+  // "Consistency" is one of the three stat bars this app actually tracks,
+  // so it's worth prompting for rather than only measuring after the fact.
+  // Gated to the current calendar day (not whatever date is being viewed)
+  // and to mid-afternoon or later, so it doesn't nag first thing in the
+  // morning. Dismiss is per-session only, same as the backup reminder.
+  function shouldShowFoodReminder(){
+    if(foodReminderDismissed) return false;
+    if(currentDate !== todayStr()) return false;
+    if(dayTotals(todayStr()).tracked) return false;
+    return new Date().getHours() >= 15;
   }
 
   function lastNTrackedDates(n){
@@ -2436,6 +2455,11 @@
         '<span class="backup-reminder-actions"><button onclick="App.exportData()">Export now</button>' +
         '<button class="reminder-dismiss" onclick="App.dismissBackupReminder()">Not now</button></span></div>';
     }
+    if(shouldShowFoodReminder()){
+      html += '<div class="setup-banner food-reminder"><span>You haven\'t logged anything today yet — a couple of minutes now keeps your streak alive.</span>' +
+        '<span class="food-reminder-actions"><button onclick="App.jumpToFoodLog()">Log now</button>' +
+        '<button class="reminder-dismiss" onclick="App.dismissFoodReminder()">Not now</button></span></div>';
+    }
     html += renderDateNav();
     html += renderSummary(t);
     html += renderFitnessAssessment();
@@ -3224,6 +3248,15 @@
   App.dismissBackupReminder = function(){
     reminderDismissed = true;
     render();
+  };
+
+  App.dismissFoodReminder = function(){
+    foodReminderDismissed = true;
+    render();
+  };
+  App.jumpToFoodLog = function(){
+    var el = document.getElementById('foodName');
+    if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
   };
 
   App.importData = async function(inputEl){
