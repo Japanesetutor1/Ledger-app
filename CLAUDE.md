@@ -608,48 +608,53 @@ is completed for the day.
   not a bug — the UI already shows a graceful "couldn't estimate" fallback
   to manual entry.
 
-## Fruit quick-add
+## Browsing the food database (not just searching it)
 
-Tap-only alternative to typing a food name, for the 10 most common
-fruits (`FRUIT_QUICK_ADD`, `renderFruitQuickAdd`, sits above the
-food-db search in the Food panel). Built because the free-text path's
-"auto-fill calories" only actually works via AI estimation, which only
-works inside a Claude artifact (see "AI features" below) — for the
-deployed app most people use, typing a food name does NOT auto-populate
-calories at all, it just fails over to manual entry. This gives a
-genuinely tap-only, always-working path for at least the most common
-case (fruit) without depending on that.
+`FOOD_DB`'s search box used to show nothing at all until you typed a
+query — you could only find something if you already knew what to call
+it. A fruit-only quick-add widget was tried as a fix for this (tap a
+fruit, tap a size, no typing) but that was explicitly rejected as "too
+one-off" — the actual ask was to be able to browse the *whole*
+inventory, not get a bespoke UI for one food category. What's here now:
 
-- Two-tap flow: tap a fruit chip (`App.toggleFruitQuickAdd`) to reveal
-  its 5 size options, tap a size (`App.logFruitSize`) to log it
-  immediately — no typing, ever. Tapping an already-open fruit's chip
-  again collapses it without logging (a toggle, not just an "open"
-  action).
-- **Sizing isn't uniformly "small/medium/large" across all 10** —
-  whole fruits people eat as a single unit (apple, banana, orange,
-  pear, mango) use small→extra-large sizing; fruits normally eaten
-  loose or cut (grapes, strawberries, blueberries, watermelon,
-  pineapple) use ½-to-3-cup portions instead, since "a small handful
-  of grapes" isn't a real serving concept the way "a small apple" is.
-  If asked to add more fruits, pick whichever sizing convention
-  actually matches how people eat that fruit, don't force one scheme
-  onto everything for consistency's sake.
-- Calorie figures are best-estimate against standard USDA-style values
-  for the stated portion — same honesty standard as `FOOD_DB` below,
-  not lab-verified for any specific piece of fruit.
-- `fruitQuickAddOpen` (which fruit's sizes are currently expanded, or
-  `null`) is transient UI state, not persisted — same pattern as
-  `nutrientSuggestions` was before that feature was removed.
-- Chips and size buttons use `onpointerdown` + `touch-action:
-  manipulation`, matching the PIN keypad fix above — this is meant to
-  feel instant on tap, so it gets the same treatment.
+- **Empty search box shows a category picker instead of a hint.**
+  `foodDbCategories()` derives the list (name + item count) from
+  `FOOD_DB` itself — there's no separate hardcoded category list to
+  keep in sync. Tapping a category (`App.setDbCategory`) shows every
+  item in it using the exact same row markup as search results
+  (`renderFoodDbRow`, factored out so search and browse never visually
+  diverge); `App.clearDbCategory` (the "← All categories" link) goes
+  back. Typing in the search box still searches across everything
+  regardless of which category is open — search takes precedence over
+  browse in `renderFoodDbResultsHtml`.
+- **The 10-fruit sizing feature became real `FOOD_DB` entries**, not a
+  separate data structure — 5 sized variants each (e.g. `Apple —
+  extra small/small/medium/large/extra large`) under the existing
+  "Fruit & snacks" category, replacing the old single-guessed-size
+  Apple/Banana entries that were there before. Whole fruits use
+  small→extra-large sizing; fruits normally eaten loose or cut
+  (grapes, strawberries, blueberries, watermelon, pineapple) use
+  ½-to-3-cup portions instead, since "a small handful of grapes" isn't
+  a real serving concept the way "a small apple" is — that reasoning
+  carried over from the rejected one-off version, only the *delivery
+  mechanism* (real DB entries + generic browse UI, not a bespoke
+  fruit-only widget) changed. If asked to size more foods this way,
+  add them as real `FOOD_DB` entries under whatever category actually
+  fits, not a new special-cased UI.
+- `dbCategoryOpen` (which category is expanded, or `null`) is
+  transient UI state, not persisted.
+- Category chips and the back link use `onpointerdown` +
+  `touch-action:manipulation`, matching the PIN keypad fix — meant to
+  feel instant on tap.
 
 ## Food database
 
-- `FOOD_DB` is a hardcoded array (~130 items) of common NYC foods with
-  best-estimate calories, meant for instant offline search — not a
-  verified nutrition database. If asked to add more items, keep the same
-  shape (`{id, name, category, unit, cals}`) and the same honesty standard:
+- `FOOD_DB` is a hardcoded array (181 items as of the last count — check
+  `FOOD_DB.length` rather than trust this number long-term) of common
+  NYC foods with best-estimate calories, meant for instant offline
+  search *and* browsing (see the section above) — not a verified
+  nutrition database. If asked to add more items, keep the same shape
+  (`{id, name, category, unit, cals}`) and the same honesty standard:
   ground estimates against real sources where feasible, and don't invent
   false precision.
 

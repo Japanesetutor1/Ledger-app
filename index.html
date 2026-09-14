@@ -164,6 +164,19 @@
   }
   .fooddb-results{ max-height:220px; overflow-y:auto; }
   .fooddb-hint{ color:var(--text-faint); font-size:12px; padding:2px 2px 4px; }
+  .dbcat-row{ display:flex; flex-wrap:wrap; gap:7px; padding-top:4px; }
+  .dbcat-chip{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
+    padding:6px 12px; font-size:12px; color:var(--text); cursor:pointer;
+    touch-action:manipulation; user-select:none; display:flex; align-items:center; gap:6px;
+  }
+  .dbcat-chip:hover{ border-color:var(--gold); }
+  .dbcat-count{ color:var(--text-faint); font-size:10.5px; font-family:'IBM Plex Mono',monospace; }
+  .dbcat-back{
+    display:block; width:100%; text-align:left; background:none; border:none; color:var(--gold);
+    font-size:12px; cursor:pointer; padding:6px 2px 8px; touch-action:manipulation;
+  }
+  .dbcat-back:hover{ text-decoration:underline; }
   .fooddb-row{
     display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid var(--border-soft);
     font-size:12.5px;
@@ -185,25 +198,6 @@
     padding:5px 8px 5px 12px; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:7px;
     max-width:100%;
   }
-  .fruit-quickadd{ padding:12px 14px; border-bottom:1px solid var(--border); }
-  .fruit-quickadd-label{ color:var(--text-dim); font-size:11.5px; margin-bottom:8px; }
-  .fruit-chip-row{ display:flex; flex-wrap:wrap; gap:7px; }
-  .fruit-chip{
-    background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
-    padding:6px 13px; font-size:12.5px; color:var(--text); cursor:pointer;
-    touch-action:manipulation; user-select:none;
-  }
-  .fruit-chip:hover{ border-color:var(--gold); }
-  .fruit-chip.active{ border-color:var(--gold); color:var(--gold); background:var(--surface-3); }
-  .fruit-size-row{ display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
-  .fruit-size-btn{
-    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
-    background:var(--surface-3); border:1px solid var(--border); border-radius:var(--radius);
-    padding:7px 11px; cursor:pointer; touch-action:manipulation; user-select:none;
-  }
-  .fruit-size-btn:hover{ border-color:var(--gold); }
-  .fruit-size-label{ font-size:12px; color:var(--text); }
-  .fruit-size-cals{ font-size:11px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; }
   .favorite-chip:hover{ border-color:var(--gold); }
   .favorite-chip .fav-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
   .favorite-chip .fav-cals{ color:var(--text-dim); flex-shrink:0; }
@@ -933,64 +927,6 @@
   // verified lab database, just careful best-estimate figures (grounded against
   // published nutrition data where available) so logging common meals doesn't
   // need an AI call or manual guesswork. "1 fist" ~= 1 cup for scoopable foods.
-  // ---------------- fruit quick-add ----------------
-  // Typing a food name and hoping calories get filled in isn't actually
-  // seamless -- this app's free-text path only auto-fills via AI
-  // estimation, which only works inside a Claude artifact (see "AI
-  // features" below), not the deployed build most people actually use.
-  // This is a genuinely tap-only alternative for common fruit: pick the
-  // fruit, pick the size, done -- no typing, no waiting on an API that
-  // might not even be reachable. Whole fruits (apple/banana/orange/pear/
-  // mango) use small-to-extra-large sizing; fruits normally eaten loose
-  // or cut (grapes/strawberries/blueberries/watermelon/pineapple) use
-  // cup-based portions instead, since "a small handful of grapes" isn't
-  // a real serving concept the way "a small apple" is. Calorie figures
-  // are best-estimate against standard USDA-style values for the stated
-  // portion, same honesty standard as FOOD_DB below — not lab-verified
-  // for any specific piece of fruit.
-  var FRUIT_QUICK_ADD = [
-    { name:'Apple', sizes:[
-      {label:'Extra small', cals:78}, {label:'Small', cals:85}, {label:'Medium', cals:95},
-      {label:'Large', cals:115}, {label:'Extra large', cals:135}
-    ]},
-    { name:'Banana', sizes:[
-      {label:'Extra small', cals:80}, {label:'Small', cals:90}, {label:'Medium', cals:105},
-      {label:'Large', cals:121}, {label:'Extra large', cals:135}
-    ]},
-    { name:'Orange', sizes:[
-      {label:'Extra small', cals:45}, {label:'Small', cals:53}, {label:'Medium', cals:62},
-      {label:'Large', cals:86}, {label:'Extra large', cals:105}
-    ]},
-    { name:'Pear', sizes:[
-      {label:'Extra small', cals:79}, {label:'Small', cals:94}, {label:'Medium', cals:101},
-      {label:'Large', cals:113}, {label:'Extra large', cals:130}
-    ]},
-    { name:'Mango', sizes:[
-      {label:'Extra small (½)', cals:50}, {label:'Small', cals:90}, {label:'Medium', cals:120},
-      {label:'Large', cals:150}, {label:'Extra large', cals:200}
-    ]},
-    { name:'Grapes', sizes:[
-      {label:'½ cup', cals:52}, {label:'1 cup', cals:104}, {label:'1.5 cups', cals:156},
-      {label:'2 cups', cals:208}, {label:'3 cups', cals:312}
-    ]},
-    { name:'Strawberries', sizes:[
-      {label:'½ cup', cals:27}, {label:'1 cup', cals:53}, {label:'1.5 cups', cals:80},
-      {label:'2 cups', cals:106}, {label:'3 cups', cals:159}
-    ]},
-    { name:'Blueberries', sizes:[
-      {label:'½ cup', cals:42}, {label:'1 cup', cals:84}, {label:'1.5 cups', cals:126},
-      {label:'2 cups', cals:168}, {label:'3 cups', cals:252}
-    ]},
-    { name:'Watermelon', sizes:[
-      {label:'½ cup', cals:23}, {label:'1 cup', cals:46}, {label:'1.5 cups', cals:69},
-      {label:'2 cups', cals:92}, {label:'3 cups', cals:138}
-    ]},
-    { name:'Pineapple', sizes:[
-      {label:'½ cup', cals:41}, {label:'1 cup', cals:82}, {label:'1.5 cups', cals:123},
-      {label:'2 cups', cals:164}, {label:'3 cups', cals:246}
-    ]}
-  ];
-  var fruitQuickAddOpen = null; // null = collapsed; fruit name = expanded showing its 5 sizes
 
   var FOOD_DB = [
     // Pizza
@@ -1104,9 +1040,63 @@
     {id:'db_ft_xiandumpling', name:"Xi'an-style dumplings", category:'Food trucks', unit:'6 pieces', cals:400},
     {id:'db_ft_katiroll', name:'Chicken kati roll', category:'Food trucks', unit:'1 roll', cals:450},
     {id:'db_ft_loadedfries', name:'Loaded fries', category:'Food trucks', unit:'1 order', cals:700},
-    // Fruit & snacks
-    {id:'db_fr_banana', name:'Banana', category:'Fruit & snacks', unit:'1 medium', cals:105},
-    {id:'db_fr_apple', name:'Apple', category:'Fruit & snacks', unit:'1 medium', cals:95},
+    // Fruit & snacks — sized variants so browsing shows real portion
+    // options instead of one guessed "medium" figure. Whole fruits use
+    // small-to-extra-large; fruit normally eaten loose or cut (grapes,
+    // berries, melon, pineapple) use cup portions instead, since "a
+    // small handful of grapes" isn't a real serving concept the way "a
+    // small apple" is. Best-estimate against standard USDA-style values
+    // for the stated portion, not lab-verified for any specific fruit.
+    {id:'db_fr_apple_xs', name:'Apple', category:'Fruit & snacks', unit:'extra small', cals:78},
+    {id:'db_fr_apple_sm', name:'Apple', category:'Fruit & snacks', unit:'small', cals:85},
+    {id:'db_fr_apple_md', name:'Apple', category:'Fruit & snacks', unit:'medium', cals:95},
+    {id:'db_fr_apple_lg', name:'Apple', category:'Fruit & snacks', unit:'large', cals:115},
+    {id:'db_fr_apple_xl', name:'Apple', category:'Fruit & snacks', unit:'extra large', cals:135},
+    {id:'db_fr_banana_xs', name:'Banana', category:'Fruit & snacks', unit:'extra small', cals:80},
+    {id:'db_fr_banana_sm', name:'Banana', category:'Fruit & snacks', unit:'small', cals:90},
+    {id:'db_fr_banana_md', name:'Banana', category:'Fruit & snacks', unit:'medium', cals:105},
+    {id:'db_fr_banana_lg', name:'Banana', category:'Fruit & snacks', unit:'large', cals:121},
+    {id:'db_fr_banana_xl', name:'Banana', category:'Fruit & snacks', unit:'extra large', cals:135},
+    {id:'db_fr_orange_xs', name:'Orange', category:'Fruit & snacks', unit:'extra small', cals:45},
+    {id:'db_fr_orange_sm', name:'Orange', category:'Fruit & snacks', unit:'small', cals:53},
+    {id:'db_fr_orange_md', name:'Orange', category:'Fruit & snacks', unit:'medium', cals:62},
+    {id:'db_fr_orange_lg', name:'Orange', category:'Fruit & snacks', unit:'large', cals:86},
+    {id:'db_fr_orange_xl', name:'Orange', category:'Fruit & snacks', unit:'extra large', cals:105},
+    {id:'db_fr_pear_xs', name:'Pear', category:'Fruit & snacks', unit:'extra small', cals:79},
+    {id:'db_fr_pear_sm', name:'Pear', category:'Fruit & snacks', unit:'small', cals:94},
+    {id:'db_fr_pear_md', name:'Pear', category:'Fruit & snacks', unit:'medium', cals:101},
+    {id:'db_fr_pear_lg', name:'Pear', category:'Fruit & snacks', unit:'large', cals:113},
+    {id:'db_fr_pear_xl', name:'Pear', category:'Fruit & snacks', unit:'extra large', cals:130},
+    {id:'db_fr_mango_xs', name:'Mango', category:'Fruit & snacks', unit:'extra small (½)', cals:50},
+    {id:'db_fr_mango_sm', name:'Mango', category:'Fruit & snacks', unit:'small', cals:90},
+    {id:'db_fr_mango_md', name:'Mango', category:'Fruit & snacks', unit:'medium', cals:120},
+    {id:'db_fr_mango_lg', name:'Mango', category:'Fruit & snacks', unit:'large', cals:150},
+    {id:'db_fr_mango_xl', name:'Mango', category:'Fruit & snacks', unit:'extra large', cals:200},
+    {id:'db_fr_grapes_h', name:'Grapes', category:'Fruit & snacks', unit:'½ cup', cals:52},
+    {id:'db_fr_grapes_1', name:'Grapes', category:'Fruit & snacks', unit:'1 cup', cals:104},
+    {id:'db_fr_grapes_15', name:'Grapes', category:'Fruit & snacks', unit:'1.5 cups', cals:156},
+    {id:'db_fr_grapes_2', name:'Grapes', category:'Fruit & snacks', unit:'2 cups', cals:208},
+    {id:'db_fr_grapes_3', name:'Grapes', category:'Fruit & snacks', unit:'3 cups', cals:312},
+    {id:'db_fr_straw_h', name:'Strawberries', category:'Fruit & snacks', unit:'½ cup', cals:27},
+    {id:'db_fr_straw_1', name:'Strawberries', category:'Fruit & snacks', unit:'1 cup', cals:53},
+    {id:'db_fr_straw_15', name:'Strawberries', category:'Fruit & snacks', unit:'1.5 cups', cals:80},
+    {id:'db_fr_straw_2', name:'Strawberries', category:'Fruit & snacks', unit:'2 cups', cals:106},
+    {id:'db_fr_straw_3', name:'Strawberries', category:'Fruit & snacks', unit:'3 cups', cals:159},
+    {id:'db_fr_blue_h', name:'Blueberries', category:'Fruit & snacks', unit:'½ cup', cals:42},
+    {id:'db_fr_blue_1', name:'Blueberries', category:'Fruit & snacks', unit:'1 cup', cals:84},
+    {id:'db_fr_blue_15', name:'Blueberries', category:'Fruit & snacks', unit:'1.5 cups', cals:126},
+    {id:'db_fr_blue_2', name:'Blueberries', category:'Fruit & snacks', unit:'2 cups', cals:168},
+    {id:'db_fr_blue_3', name:'Blueberries', category:'Fruit & snacks', unit:'3 cups', cals:252},
+    {id:'db_fr_water_h', name:'Watermelon', category:'Fruit & snacks', unit:'½ cup', cals:23},
+    {id:'db_fr_water_1', name:'Watermelon', category:'Fruit & snacks', unit:'1 cup', cals:46},
+    {id:'db_fr_water_15', name:'Watermelon', category:'Fruit & snacks', unit:'1.5 cups', cals:69},
+    {id:'db_fr_water_2', name:'Watermelon', category:'Fruit & snacks', unit:'2 cups', cals:92},
+    {id:'db_fr_water_3', name:'Watermelon', category:'Fruit & snacks', unit:'3 cups', cals:138},
+    {id:'db_fr_pine_h', name:'Pineapple', category:'Fruit & snacks', unit:'½ cup', cals:41},
+    {id:'db_fr_pine_1', name:'Pineapple', category:'Fruit & snacks', unit:'1 cup', cals:82},
+    {id:'db_fr_pine_15', name:'Pineapple', category:'Fruit & snacks', unit:'1.5 cups', cals:123},
+    {id:'db_fr_pine_2', name:'Pineapple', category:'Fruit & snacks', unit:'2 cups', cals:164},
+    {id:'db_fr_pine_3', name:'Pineapple', category:'Fruit & snacks', unit:'3 cups', cals:246},
     {id:'db_fr_mixednuts', name:'Mixed nuts', category:'Fruit & snacks', unit:'1 fist', cals:170},
     {id:'db_fr_granolabar', name:'Granola bar', category:'Fruit & snacks', unit:'1 bar', cals:140},
     {id:'db_fr_greekyogurt', name:'Greek yogurt', category:'Fruit & snacks', unit:'1 cup', cals:150},
@@ -1151,6 +1141,7 @@
   ];
 
   var dbSearchQuery = '';
+  var dbCategoryOpen = null; // null = category picker shown; category name = browsing that category's items
   var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
   var showFitnessAssessment = false; // force-show the assessment card even if already taken (Retake link)
   var fitnessDraft = { pushup: null, squat: null, activity: null }; // in-progress answers before submit
@@ -2938,7 +2929,6 @@
       '<div class="panels">' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
-          renderFruitQuickAdd() +
           renderFoodDbSearch() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
@@ -2972,51 +2962,43 @@
     }).slice(0, 8);
   }
 
-  function renderFoodDbResultsHtml(query){
-    if(!query){
-      return '<div class="fooddb-hint">Type to search ' + FOOD_DB.length + ' common NYC foods — try "bagel", "halal", "mofongo"…</div>';
-    }
-    var matches = foodDbMatches(query);
-    if(!matches.length){
-      return '<div class="fooddb-hint">No matches — try a different word, or add it manually below.</div>';
-    }
-    return matches.map(function(it){
-      return '<div class="fooddb-row">' +
-        '<span class="fooddb-name">' + esc(it.name) + ' <span class="fooddb-unit">(' + esc(it.unit) + ')</span></span>' +
-        '<span class="fooddb-cals num">~' + it.cals + '</span>' +
-        '<button class="fooddb-fav" title="Save to common foods" onclick="App.saveDbItemToFavorites(\'' + it.id + '\')">&#9734;</button>' +
-        '<button onclick="App.logDbItem(\'' + it.id + '\')">Add</button>' +
-      '</div>';
-    }).join('');
+  function foodDbCategories(){
+    var counts = {};
+    FOOD_DB.forEach(function(it){ counts[it.category] = (counts[it.category]||0) + 1; });
+    return Object.keys(counts).sort().map(function(c){ return { name:c, count:counts[c] }; });
   }
 
-  function renderFruitQuickAdd(){
-    var chips = FRUIT_QUICK_ADD.map(function(f){
-      var active = fruitQuickAddOpen === f.name;
-      return '<button type="button" class="fruit-chip' + (active ? ' active' : '') + '" onpointerdown="App.toggleFruitQuickAdd(\'' + f.name + '\')">' + esc(f.name) + '</button>';
-    }).join('');
+  function renderFoodDbRow(it){
+    return '<div class="fooddb-row">' +
+      '<span class="fooddb-name">' + esc(it.name) + ' <span class="fooddb-unit">(' + esc(it.unit) + ')</span></span>' +
+      '<span class="fooddb-cals num">~' + it.cals + '</span>' +
+      '<button class="fooddb-fav" title="Save to common foods" onclick="App.saveDbItemToFavorites(\'' + it.id + '\')">&#9734;</button>' +
+      '<button onclick="App.logDbItem(\'' + it.id + '\')">Add</button>' +
+    '</div>';
+  }
 
-    var sizeRow = '';
-    if(fruitQuickAddOpen){
-      var fruit = FRUIT_QUICK_ADD.find(function(f){ return f.name === fruitQuickAddOpen; });
-      if(fruit){
-        var sizes = fruit.sizes.map(function(s, si){
-          return '<button type="button" class="fruit-size-btn" onpointerdown="App.logFruitSize(\'' + fruit.name + '\',' + si + ')">' +
-            '<span class="fruit-size-label">' + esc(s.label) + '</span>' +
-            '<span class="fruit-size-cals">' + s.cals + ' kcal</span>' +
-          '</button>';
-        }).join('');
-        sizeRow = '<div class="fruit-size-row">' + sizes + '</div>';
+  function renderFoodDbResultsHtml(query){
+    if(query){
+      var matches = foodDbMatches(query);
+      if(!matches.length){
+        return '<div class="fooddb-hint">No matches — try a different word, or add it manually below.</div>';
       }
+      return matches.map(renderFoodDbRow).join('');
     }
 
-    return (
-      '<div class="fruit-quickadd">' +
-        '<div class="fruit-quickadd-label">Quick add: fruit</div>' +
-        '<div class="fruit-chip-row">' + chips + '</div>' +
-        sizeRow +
-      '</div>'
-    );
+    // No search typed — browse by category instead of showing nothing.
+    if(dbCategoryOpen){
+      var items = FOOD_DB.filter(function(it){ return it.category === dbCategoryOpen; });
+      var backRow = '<button type="button" class="dbcat-back" onclick="App.clearDbCategory()">&larr; All categories</button>';
+      return backRow + items.map(renderFoodDbRow).join('');
+    }
+
+    var cats = foodDbCategories();
+    var chips = cats.map(function(c){
+      return '<button type="button" class="dbcat-chip" onclick="App.setDbCategory(\'' + esc(c.name) + '\')">' + esc(c.name) + ' <span class="dbcat-count">' + c.count + '</span></button>';
+    }).join('');
+    return '<div class="fooddb-hint">Browse ' + FOOD_DB.length + ' common NYC foods by category, or search above.</div>' +
+      '<div class="dbcat-row">' + chips + '</div>';
   }
 
   function renderFoodDbSearch(){
@@ -3415,21 +3397,16 @@
     if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
   };
 
-  App.toggleFruitQuickAdd = function(fruitName){
-    fruitQuickAddOpen = (fruitQuickAddOpen === fruitName) ? null : fruitName;
-    render();
+  App.setDbCategory = function(cat){
+    dbCategoryOpen = cat;
+    var el = document.getElementById('foodDbResults');
+    if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
   };
 
-  App.logFruitSize = async function(fruitName, sizeIndex){
-    var fruit = FRUIT_QUICK_ADD.find(function(f){ return f.name === fruitName; });
-    if(!fruit) return;
-    var size = fruit.sizes[sizeIndex];
-    if(!size) return;
-    var day = ensureDay(currentDate);
-    day.food.push({ id: uid(), name: fruit.name + ' (' + size.label + ')', cals: size.cals, estimated: true });
-    fruitQuickAddOpen = null;
-    await saveLogs();
-    render();
+  App.clearDbCategory = function(){
+    dbCategoryOpen = null;
+    var el = document.getElementById('foodDbResults');
+    if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
   };
 
   App.logDbItem = async function(id){
