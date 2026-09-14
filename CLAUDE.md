@@ -608,15 +608,31 @@ is completed for the day.
   not a bug — the UI already shows a graceful "couldn't estimate" fallback
   to manual entry.
 
-## Browsing AND searching the food database (one system, not two)
+## The food entry bar (search, browse, and manual entry are ONE thing)
 
-`FOOD_DB`'s search box used to show nothing at all until you typed a
-query, and every sized food (fruit) was 5 separate flat rows — typing
-"ap" showed 5 near-identical "Apple (small)"/"Apple (medium)"/etc rows
-instead of one "Apple." A fruit-only quick-add widget was tried as a
-fix for the browsing gap but was explicitly rejected as "too one-off."
-What's here now is one system that both searches and browses the same
-underlying data:
+This went through three iterations before landing here — worth knowing
+the history so it doesn't cycle back:
+1. Search-only box, empty until you typed a query.
+2. A fruit-only quick-add widget bolted on to fix the browsing gap —
+   rejected as "too one-off."
+3. A general category-browser (23 category chips) plus the search box
+   plus a SEPARATE manual-entry row below — rejected as too much
+   clutter, and specifically asked to be "one search bar."
+
+**What's here now:** one input (`#foodName`) does search, browse-by-
+typing, AND manual/AI entry — there is no separate search box and no
+category picker. `renderFoodEntryBar()` renders it; `App.searchFoodDb`
+drives the live results underneath as you type (lightweight `innerHTML`
+swap of `#foodDbResults`, not a full render, same pattern as the PIN
+dots); `App.addEntry('food')` on the Add button still handles the
+manual-calories-or-AI-estimate path exactly as before. **Favorites are
+the "browse common foods" mechanism now, not a generic category
+list** — someone's own saved foods are inherently more relevant to
+them than 23 category chips ever were, and it's usually a much shorter
+list. Favorites render directly below the entry bar for that reason;
+don't reintroduce a category browser if asked to make foods more
+discoverable again — grow `FOOD_DB` or point people at Favorites
+instead.
 
 - **`FOOD_DB` entries can have EITHER `{unit, cals}` (one fixed
   serving) OR `{sizes: [{label, cals}, ...]}` (multiple portions of
@@ -631,32 +647,37 @@ underlying data:
   *middle* size for a sized item (clearly labeled with which size, so
   it's never mistaken for a fixed serving) since there's no single
   size to favorite. **If you add a new sized food, give it `sizes`,
-  not 5 separate near-duplicate entries** — that's the exact pattern
-  this was built to get away from.
+  not 5 separate near-duplicate entries.**
 - **Search ranks by relevance, not just filter-and-cap.**
   `foodDbMatches` sorts into three tiers — name starts with the query,
   name contains it elsewhere, category text contains it — and
-  concatenates them before slicing to 10. This matters in practice:
-  without it, "fr" surfaced fruit entries (via the *category* text
-  "Fruit & snacks" containing "fr") ahead of "Fried chicken" and
-  "Frankfurter" (which start with "fr" in the *name*) once the DB grew
-  past a few dozen items sharing loose substring matches. Don't
-  flatten this back into a single filter — the ranking is why "ap"
-  leads with Apple instead of "Chicken shawarma wr**ap**."
-- **Empty search box shows a category picker instead of a hint.**
-  `foodDbCategories()` derives the list (name + item count) from
-  `FOOD_DB` itself. Tapping a category (`App.setDbCategory`) shows
-  every item in it via the same `renderFoodDbRow` search results use
-  (so browse and search never visually diverge, and sized items get
-  their size picker in category view too); `App.clearDbCategory` (the
-  "← All categories" link) goes back. Typing still searches across
-  everything regardless of which category is open.
-- `dbCategoryOpen` (expanded category, or `null`) and
-  `dbSizePickerFor` (id of the item whose size picker is open, or
-  `null`) are transient UI state, not persisted.
-- Category chips, the back link, and size-picker buttons all use
-  `onpointerdown` + `touch-action:manipulation`, matching the PIN
-  keypad fix — meant to feel instant on tap.
+  concatenates them before slicing to 10. Without it, "fr" surfaced
+  fruit entries (via the *category* text "Fruit & snacks" containing
+  "fr") ahead of "Fried chicken" and "Frankfurter" (which start with
+  "fr" in the *name*). Don't flatten this back into a single filter —
+  the ranking is why "ap" leads with Apple instead of "Chicken
+  shawarma wr**ap**."
+- **The bar clears itself (`dbSearchQuery = ''`) after any successful
+  log** — whether from tapping a plain DB result, picking a size, or
+  a manual/AI entry — so it's ready for the next item without the
+  person clearing it by hand. All three success paths need this reset;
+  if you add a fourth way to log food, add the reset there too or the
+  bar will confusingly still show the last query.
+- `dbSizePickerFor` (id of the item whose size picker is open, or
+  `null`) is transient UI state, not persisted. `foodDbCategories()`
+  and the whole category-browse UI (`dbCategoryOpen`,
+  `App.setDbCategory`/`clearDbCategory`, `.dbcat-*` CSS) were removed
+  entirely in this pass — don't resurrect partial pieces of it.
+- The bar's input and size-picker buttons use `onpointerdown` +
+  `touch-action:manipulation`, matching the PIN keypad fix — meant to
+  feel instant on tap.
+- **The separate "Save a new common food" row (inside
+  `renderFavoritesRow`) was deliberately left alone** — it lets someone
+  pre-register a favorite without logging it for today, which is a
+  different action from "log what I ate," and removing it wasn't part
+  of what was asked. Don't merge it into the main entry bar without
+  being asked to; conflating "log today's food" and "curate my
+  favorites list" into one input would confuse both actions.
 
 ## Food database
 

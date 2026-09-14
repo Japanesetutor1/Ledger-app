@@ -157,26 +157,8 @@
 
   .favorites-wrap{ border-bottom:1px solid var(--border); }
 
-  .fooddb{ border-bottom:1px solid var(--border); padding:12px 14px; }
-  .fooddb input{
-    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
-    border-radius:var(--radius); padding:8px 10px; font-family:inherit; font-size:13px; margin-bottom:8px;
-  }
   .fooddb-results{ max-height:220px; overflow-y:auto; }
   .fooddb-hint{ color:var(--text-faint); font-size:12px; padding:2px 2px 4px; }
-  .dbcat-row{ display:flex; flex-wrap:wrap; gap:7px; padding-top:4px; }
-  .dbcat-chip{
-    background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
-    padding:6px 12px; font-size:12px; color:var(--text); cursor:pointer;
-    touch-action:manipulation; user-select:none; display:flex; align-items:center; gap:6px;
-  }
-  .dbcat-chip:hover{ border-color:var(--gold); }
-  .dbcat-count{ color:var(--text-faint); font-size:10.5px; font-family:'IBM Plex Mono',monospace; }
-  .dbcat-back{
-    display:block; width:100%; text-align:left; background:none; border:none; color:var(--gold);
-    font-size:12px; cursor:pointer; padding:6px 2px 8px; touch-action:manipulation;
-  }
-  .dbcat-back:hover{ text-decoration:underline; }
   .fooddb-row{
     display:flex; align-items:center; gap:8px; padding:6px 2px; border-bottom:1px solid var(--border-soft);
     font-size:12.5px;
@@ -1240,7 +1222,6 @@
   ];
 
   var dbSearchQuery = '';
-  var dbCategoryOpen = null; // null = category picker shown; category name = browsing that category's items
   var dbSizePickerFor = null; // id of a FOOD_DB item whose size options are expanded, or null
   var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
   var showFitnessAssessment = false; // force-show the assessment card even if already taken (Retake link)
@@ -3029,15 +3010,9 @@
       '<div class="panels">' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
-          renderFoodDbSearch() +
+          renderFoodEntryBar() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
-          '<div class="add-row">' +
-            '<input class="name-input" id="foodName" placeholder="e.g. two eggs and toast with butter" maxlength="120">' +
-            '<input class="cal-input num" id="foodCals" type="number" min="0" placeholder="kcal (auto)">' +
-            '<button id="foodAddBtn" onclick="App.addEntry(\'food\')">Add</button>' +
-          '</div>' +
-          '<div class="add-row-err" id="foodAddErr"></div>' +
         '</div>' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="credit-text">Exercise</h2><span class="total num">' + round(exTotal) + '</span></div>' +
@@ -3072,12 +3047,6 @@
     return starts.concat(contains, catMatch).slice(0, 10);
   }
 
-  function foodDbCategories(){
-    var counts = {};
-    FOOD_DB.forEach(function(it){ counts[it.category] = (counts[it.category]||0) + 1; });
-    return Object.keys(counts).sort().map(function(c){ return { name:c, count:counts[c] }; });
-  }
-
   function renderFoodDbRow(it){
     if(it.sizes){
       var open = dbSizePickerFor === it.id;
@@ -3106,36 +3075,34 @@
     '</div>';
   }
 
+  // Search-only now -- browsing 23 categories of chips was itself the
+  // clutter this consolidation is meant to remove. Favorites (a
+  // person's own saved common foods) is the "quick access" mechanism
+  // now, not a generic category list. Empty/very short queries show
+  // nothing rather than a hint, keeping the bar quiet until it's used.
   function renderFoodDbResultsHtml(query){
-    if(query){
-      var matches = foodDbMatches(query);
-      if(!matches.length){
-        return '<div class="fooddb-hint">No matches — try a different word, or add it manually below.</div>';
-      }
-      return matches.map(renderFoodDbRow).join('');
+    if(!query || query.length < 2) return '';
+    var matches = foodDbMatches(query);
+    if(!matches.length){
+      return '<div class="fooddb-hint">No matches — Add will estimate it, or enter calories yourself.</div>';
     }
-
-    // No search typed — browse by category instead of showing nothing.
-    if(dbCategoryOpen){
-      var items = FOOD_DB.filter(function(it){ return it.category === dbCategoryOpen; });
-      var backRow = '<button type="button" class="dbcat-back" onclick="App.clearDbCategory()">&larr; All categories</button>';
-      return backRow + items.map(renderFoodDbRow).join('');
-    }
-
-    var cats = foodDbCategories();
-    var chips = cats.map(function(c){
-      return '<button type="button" class="dbcat-chip" onclick="App.setDbCategory(\'' + esc(c.name) + '\')">' + esc(c.name) + ' <span class="dbcat-count">' + c.count + '</span></button>';
-    }).join('');
-    return '<div class="fooddb-hint">Browse ' + FOOD_DB.length + ' common NYC foods by category, or search above.</div>' +
-      '<div class="dbcat-row">' + chips + '</div>';
+    return matches.map(renderFoodDbRow).join('');
   }
 
-  function renderFoodDbSearch(){
+  // One bar does search AND manual/AI entry -- typing a name shows
+  // matching common foods live underneath (tap one to log, or pick a
+  // size); filling in the kcal field and hitting Add always logs
+  // exactly what's typed, matched or not. This replaced two separate
+  // inputs (a search-only box, and a second manual name+kcal row).
+  function renderFoodEntryBar(){
     return (
-      '<div class="fooddb">' +
-        '<input id="foodDbSearch" placeholder="Search NYC foods…" value="' + esc(dbSearchQuery) + '" oninput="App.searchFoodDb(this.value)">' +
-        '<div class="fooddb-results" id="foodDbResults">' + renderFoodDbResultsHtml(dbSearchQuery) + '</div>' +
-      '</div>'
+      '<div class="add-row">' +
+        '<input class="name-input" id="foodName" placeholder="Search or type a food…" maxlength="120" value="' + esc(dbSearchQuery) + '" oninput="App.searchFoodDb(this.value)">' +
+        '<input class="cal-input num" id="foodCals" type="number" min="0" placeholder="kcal (auto)">' +
+        '<button id="foodAddBtn" onclick="App.addEntry(\'food\')">Add</button>' +
+      '</div>' +
+      '<div class="add-row-err" id="foodAddErr"></div>' +
+      '<div class="fooddb-results" id="foodDbResults">' + renderFoodDbResultsHtml(dbSearchQuery) + '</div>'
     );
   }
 
@@ -3487,6 +3454,7 @@
       if(isNaN(cals)) return;
       var manualEntry = { id: uid(), name: name, cals: cals, estimated: false };
       day[type].push(manualEntry);
+      if(type === 'food') dbSearchQuery = '';
       await saveLogs();
       render();
       return;
@@ -3505,6 +3473,7 @@
       var label = (result.label && String(result.label).trim()) || name;
       var estEntry = { id: uid(), name: label, cals: estCals, estimated: true };
       day[type].push(estEntry);
+      if(type === 'food') dbSearchQuery = '';
       await saveLogs();
       render();
     }catch(e){
@@ -3526,24 +3495,13 @@
     if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
   };
 
-  App.setDbCategory = function(cat){
-    dbCategoryOpen = cat;
-    var el = document.getElementById('foodDbResults');
-    if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
-  };
-
-  App.clearDbCategory = function(){
-    dbCategoryOpen = null;
-    var el = document.getElementById('foodDbResults');
-    if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
-  };
-
   App.logDbItem = async function(id){
     var item = FOOD_DB.find(function(f){ return f.id === id; });
     if(!item) return;
     var day = ensureDay(currentDate);
     var entry = { id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true };
     day.food.push(entry);
+    dbSearchQuery = '';
     await saveLogs();
     render();
   };
@@ -3562,6 +3520,7 @@
     var day = ensureDay(currentDate);
     day.food.push({ id: uid(), name: item.name + ' (' + size.label + ')', cals: size.cals, estimated: true });
     dbSizePickerFor = null;
+    dbSearchQuery = '';
     await saveLogs();
     render();
   };
