@@ -191,6 +191,19 @@
   }
   .fooddb-row button:hover{ border-color:var(--gold); color:var(--gold); }
   .fooddb-row button.fooddb-fav{ padding:3px 7px; font-size:13px; }
+  .fooddb-row-sized{ flex-wrap:wrap; }
+  .fooddb-row-sized.open{ border-bottom:none; padding-bottom:2px; }
+  .fooddb-size-row{
+    display:flex; flex-wrap:wrap; gap:6px; width:100%; padding:6px 2px 10px;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .fooddb-size-btn{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius);
+    padding:6px 10px; cursor:pointer; touch-action:manipulation; user-select:none; font-size:11.5px; color:var(--text);
+  }
+  .fooddb-size-btn:hover{ border-color:var(--gold); }
+  .fooddb-size-cals{ font-size:10.5px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; }
   .favorites-row{ display:flex; flex-wrap:wrap; gap:6px; padding:12px 14px 4px; }
   .favorites-empty{ padding:12px 14px 4px; color:var(--text-faint); font-size:12px; }
   .favorite-chip{
@@ -1040,67 +1053,153 @@
     {id:'db_ft_xiandumpling', name:"Xi'an-style dumplings", category:'Food trucks', unit:'6 pieces', cals:400},
     {id:'db_ft_katiroll', name:'Chicken kati roll', category:'Food trucks', unit:'1 roll', cals:450},
     {id:'db_ft_loadedfries', name:'Loaded fries', category:'Food trucks', unit:'1 order', cals:700},
-    // Fruit & snacks — sized variants so browsing shows real portion
-    // options instead of one guessed "medium" figure. Whole fruits use
-    // small-to-extra-large; fruit normally eaten loose or cut (grapes,
-    // berries, melon, pineapple) use cup portions instead, since "a
-    // small handful of grapes" isn't a real serving concept the way "a
-    // small apple" is. Best-estimate against standard USDA-style values
-    // for the stated portion, not lab-verified for any specific fruit.
-    {id:'db_fr_apple_xs', name:'Apple', category:'Fruit & snacks', unit:'extra small', cals:78},
-    {id:'db_fr_apple_sm', name:'Apple', category:'Fruit & snacks', unit:'small', cals:85},
-    {id:'db_fr_apple_md', name:'Apple', category:'Fruit & snacks', unit:'medium', cals:95},
-    {id:'db_fr_apple_lg', name:'Apple', category:'Fruit & snacks', unit:'large', cals:115},
-    {id:'db_fr_apple_xl', name:'Apple', category:'Fruit & snacks', unit:'extra large', cals:135},
-    {id:'db_fr_banana_xs', name:'Banana', category:'Fruit & snacks', unit:'extra small', cals:80},
-    {id:'db_fr_banana_sm', name:'Banana', category:'Fruit & snacks', unit:'small', cals:90},
-    {id:'db_fr_banana_md', name:'Banana', category:'Fruit & snacks', unit:'medium', cals:105},
-    {id:'db_fr_banana_lg', name:'Banana', category:'Fruit & snacks', unit:'large', cals:121},
-    {id:'db_fr_banana_xl', name:'Banana', category:'Fruit & snacks', unit:'extra large', cals:135},
-    {id:'db_fr_orange_xs', name:'Orange', category:'Fruit & snacks', unit:'extra small', cals:45},
-    {id:'db_fr_orange_sm', name:'Orange', category:'Fruit & snacks', unit:'small', cals:53},
-    {id:'db_fr_orange_md', name:'Orange', category:'Fruit & snacks', unit:'medium', cals:62},
-    {id:'db_fr_orange_lg', name:'Orange', category:'Fruit & snacks', unit:'large', cals:86},
-    {id:'db_fr_orange_xl', name:'Orange', category:'Fruit & snacks', unit:'extra large', cals:105},
-    {id:'db_fr_pear_xs', name:'Pear', category:'Fruit & snacks', unit:'extra small', cals:79},
-    {id:'db_fr_pear_sm', name:'Pear', category:'Fruit & snacks', unit:'small', cals:94},
-    {id:'db_fr_pear_md', name:'Pear', category:'Fruit & snacks', unit:'medium', cals:101},
-    {id:'db_fr_pear_lg', name:'Pear', category:'Fruit & snacks', unit:'large', cals:113},
-    {id:'db_fr_pear_xl', name:'Pear', category:'Fruit & snacks', unit:'extra large', cals:130},
-    {id:'db_fr_mango_xs', name:'Mango', category:'Fruit & snacks', unit:'extra small (½)', cals:50},
-    {id:'db_fr_mango_sm', name:'Mango', category:'Fruit & snacks', unit:'small', cals:90},
-    {id:'db_fr_mango_md', name:'Mango', category:'Fruit & snacks', unit:'medium', cals:120},
-    {id:'db_fr_mango_lg', name:'Mango', category:'Fruit & snacks', unit:'large', cals:150},
-    {id:'db_fr_mango_xl', name:'Mango', category:'Fruit & snacks', unit:'extra large', cals:200},
-    {id:'db_fr_grapes_h', name:'Grapes', category:'Fruit & snacks', unit:'½ cup', cals:52},
-    {id:'db_fr_grapes_1', name:'Grapes', category:'Fruit & snacks', unit:'1 cup', cals:104},
-    {id:'db_fr_grapes_15', name:'Grapes', category:'Fruit & snacks', unit:'1.5 cups', cals:156},
-    {id:'db_fr_grapes_2', name:'Grapes', category:'Fruit & snacks', unit:'2 cups', cals:208},
-    {id:'db_fr_grapes_3', name:'Grapes', category:'Fruit & snacks', unit:'3 cups', cals:312},
-    {id:'db_fr_straw_h', name:'Strawberries', category:'Fruit & snacks', unit:'½ cup', cals:27},
-    {id:'db_fr_straw_1', name:'Strawberries', category:'Fruit & snacks', unit:'1 cup', cals:53},
-    {id:'db_fr_straw_15', name:'Strawberries', category:'Fruit & snacks', unit:'1.5 cups', cals:80},
-    {id:'db_fr_straw_2', name:'Strawberries', category:'Fruit & snacks', unit:'2 cups', cals:106},
-    {id:'db_fr_straw_3', name:'Strawberries', category:'Fruit & snacks', unit:'3 cups', cals:159},
-    {id:'db_fr_blue_h', name:'Blueberries', category:'Fruit & snacks', unit:'½ cup', cals:42},
-    {id:'db_fr_blue_1', name:'Blueberries', category:'Fruit & snacks', unit:'1 cup', cals:84},
-    {id:'db_fr_blue_15', name:'Blueberries', category:'Fruit & snacks', unit:'1.5 cups', cals:126},
-    {id:'db_fr_blue_2', name:'Blueberries', category:'Fruit & snacks', unit:'2 cups', cals:168},
-    {id:'db_fr_blue_3', name:'Blueberries', category:'Fruit & snacks', unit:'3 cups', cals:252},
-    {id:'db_fr_water_h', name:'Watermelon', category:'Fruit & snacks', unit:'½ cup', cals:23},
-    {id:'db_fr_water_1', name:'Watermelon', category:'Fruit & snacks', unit:'1 cup', cals:46},
-    {id:'db_fr_water_15', name:'Watermelon', category:'Fruit & snacks', unit:'1.5 cups', cals:69},
-    {id:'db_fr_water_2', name:'Watermelon', category:'Fruit & snacks', unit:'2 cups', cals:92},
-    {id:'db_fr_water_3', name:'Watermelon', category:'Fruit & snacks', unit:'3 cups', cals:138},
-    {id:'db_fr_pine_h', name:'Pineapple', category:'Fruit & snacks', unit:'½ cup', cals:41},
-    {id:'db_fr_pine_1', name:'Pineapple', category:'Fruit & snacks', unit:'1 cup', cals:82},
-    {id:'db_fr_pine_15', name:'Pineapple', category:'Fruit & snacks', unit:'1.5 cups', cals:123},
-    {id:'db_fr_pine_2', name:'Pineapple', category:'Fruit & snacks', unit:'2 cups', cals:164},
-    {id:'db_fr_pine_3', name:'Pineapple', category:'Fruit & snacks', unit:'3 cups', cals:246},
+    // Fruit & snacks — sized items use `sizes` (array of {label,cals})
+    // instead of a flat unit/cals, so search/browse shows ONE row per
+    // food ("Apple") and tapping it opens a size picker, rather than 5
+    // separate "Apple (small)"/"Apple (medium)"/etc rows cluttering the
+    // list. Whole fruits use small-to-extra-large; fruit normally eaten
+    // loose or cut (grapes, berries, melon, pineapple) use cup portions
+    // instead, since "a small handful of grapes" isn't a real serving
+    // concept the way "a small apple" is. Best-estimate against
+    // standard USDA-style values for the stated portion, not
+    // lab-verified for any specific fruit.
+    {id:'db_fr_apple', name:'Apple', category:'Fruit & snacks', sizes:[
+      {label:'Extra small', cals:78}, {label:'Small', cals:85}, {label:'Medium', cals:95},
+      {label:'Large', cals:115}, {label:'Extra large', cals:135}
+    ]},
+    {id:'db_fr_banana', name:'Banana', category:'Fruit & snacks', sizes:[
+      {label:'Extra small', cals:80}, {label:'Small', cals:90}, {label:'Medium', cals:105},
+      {label:'Large', cals:121}, {label:'Extra large', cals:135}
+    ]},
+    {id:'db_fr_orange', name:'Orange', category:'Fruit & snacks', sizes:[
+      {label:'Extra small', cals:45}, {label:'Small', cals:53}, {label:'Medium', cals:62},
+      {label:'Large', cals:86}, {label:'Extra large', cals:105}
+    ]},
+    {id:'db_fr_pear', name:'Pear', category:'Fruit & snacks', sizes:[
+      {label:'Extra small', cals:79}, {label:'Small', cals:94}, {label:'Medium', cals:101},
+      {label:'Large', cals:113}, {label:'Extra large', cals:130}
+    ]},
+    {id:'db_fr_mango', name:'Mango', category:'Fruit & snacks', sizes:[
+      {label:'Extra small (½)', cals:50}, {label:'Small', cals:90}, {label:'Medium', cals:120},
+      {label:'Large', cals:150}, {label:'Extra large', cals:200}
+    ]},
+    {id:'db_fr_grapes', name:'Grapes', category:'Fruit & snacks', sizes:[
+      {label:'½ cup', cals:52}, {label:'1 cup', cals:104}, {label:'1.5 cups', cals:156},
+      {label:'2 cups', cals:208}, {label:'3 cups', cals:312}
+    ]},
+    {id:'db_fr_straw', name:'Strawberries', category:'Fruit & snacks', sizes:[
+      {label:'½ cup', cals:27}, {label:'1 cup', cals:53}, {label:'1.5 cups', cals:80},
+      {label:'2 cups', cals:106}, {label:'3 cups', cals:159}
+    ]},
+    {id:'db_fr_blue', name:'Blueberries', category:'Fruit & snacks', sizes:[
+      {label:'½ cup', cals:42}, {label:'1 cup', cals:84}, {label:'1.5 cups', cals:126},
+      {label:'2 cups', cals:168}, {label:'3 cups', cals:252}
+    ]},
+    {id:'db_fr_water', name:'Watermelon', category:'Fruit & snacks', sizes:[
+      {label:'½ cup', cals:23}, {label:'1 cup', cals:46}, {label:'1.5 cups', cals:69},
+      {label:'2 cups', cals:92}, {label:'3 cups', cals:138}
+    ]},
+    {id:'db_fr_pine', name:'Pineapple', category:'Fruit & snacks', sizes:[
+      {label:'½ cup', cals:41}, {label:'1 cup', cals:82}, {label:'1.5 cups', cals:123},
+      {label:'2 cups', cals:164}, {label:'3 cups', cals:246}
+    ]},
     {id:'db_fr_mixednuts', name:'Mixed nuts', category:'Fruit & snacks', unit:'1 fist', cals:170},
     {id:'db_fr_granolabar', name:'Granola bar', category:'Fruit & snacks', unit:'1 bar', cals:140},
     {id:'db_fr_greekyogurt', name:'Greek yogurt', category:'Fruit & snacks', unit:'1 cup', cals:150},
     {id:'db_fr_pretzel', name:'Soft pretzel (street vendor)', category:'Fruit & snacks', unit:'1 pretzel', cals:340},
+    // Home cooking & staples — plain everyday foods people actually cook
+    // and log, as opposed to the mostly restaurant/takeout items above.
+    // Several use `sizes` the same way fruit does, since portion size
+    // varies a lot for these in real life (a chicken breast isn't one
+    // fixed size any more than an apple is).
+    {id:'db_hc_chickenbreast', name:'Chicken breast (grilled)', category:'Home cooking & staples', sizes:[
+      {label:'3 oz', cals:140}, {label:'4 oz', cals:185}, {label:'6 oz', cals:280}, {label:'8 oz', cals:370}
+    ]},
+    {id:'db_hc_groundbeef', name:'Ground beef (90% lean, cooked)', category:'Home cooking & staples', sizes:[
+      {label:'3 oz', cals:180}, {label:'4 oz', cals:240}, {label:'6 oz', cals:360}
+    ]},
+    {id:'db_hc_salmon', name:'Salmon (baked)', category:'Home cooking & staples', sizes:[
+      {label:'3 oz', cals:155}, {label:'4 oz', cals:206}, {label:'6 oz', cals:309}
+    ]},
+    {id:'db_hc_steak', name:'Steak (grilled sirloin)', category:'Home cooking & staples', sizes:[
+      {label:'4 oz', cals:230}, {label:'6 oz', cals:345}, {label:'8 oz', cals:460}
+    ]},
+    {id:'db_hc_friedchicken', name:'Fried chicken (plain)', category:'Home cooking & staples', sizes:[
+      {label:'1 piece', cals:320}, {label:'2 pieces', cals:640}
+    ]},
+    {id:'db_hc_frankfurter', name:'Frankfurter / hot dog (no bun)', category:'Home cooking & staples', unit:'1 link', cals:150},
+    {id:'db_hc_hotdogbun', name:'Hot dog with bun', category:'Home cooking & staples', unit:'1', cals:290},
+    {id:'db_hc_shrimp', name:'Shrimp (grilled or boiled)', category:'Home cooking & staples', sizes:[
+      {label:'4 oz', cals:112}, {label:'6 oz', cals:168}
+    ]},
+    {id:'db_hc_turkeybreast', name:'Turkey breast (deli sliced)', category:'Home cooking & staples', sizes:[
+      {label:'2 oz', cals:60}, {label:'4 oz', cals:120}
+    ]},
+    {id:'db_hc_tofu', name:'Tofu (firm)', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:90}, {label:'1 cup', cals:180}
+    ]},
+    {id:'db_hc_egg', name:'Egg (any style, plain)', category:'Home cooking & staples', sizes:[
+      {label:'1 egg', cals:72}, {label:'2 eggs', cals:144}, {label:'3 eggs', cals:216}
+    ]},
+    {id:'db_hc_bacon', name:'Bacon', category:'Home cooking & staples', sizes:[
+      {label:'2 slices', cals:86}, {label:'4 slices', cals:172}
+    ]},
+    {id:'db_hc_whiterice', name:'White rice (cooked, plain)', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:103}, {label:'1 cup', cals:206}, {label:'1.5 cups', cals:309}, {label:'2 cups', cals:412}
+    ]},
+    {id:'db_hc_brownrice', name:'Brown rice (cooked, plain)', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:108}, {label:'1 cup', cals:216}, {label:'1.5 cups', cals:324}
+    ]},
+    {id:'db_hc_pasta', name:'Pasta (cooked, plain)', category:'Home cooking & staples', sizes:[
+      {label:'1 cup', cals:220}, {label:'1.5 cups', cals:330}, {label:'2 cups', cals:440}
+    ]},
+    {id:'db_hc_quinoa', name:'Quinoa (cooked)', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:111}, {label:'1 cup', cals:222}
+    ]},
+    {id:'db_hc_oatmeal', name:'Oatmeal (plain, cooked with water)', category:'Home cooking & staples', sizes:[
+      {label:'1 cup', cals:166}, {label:'1.5 cups', cals:249}
+    ]},
+    {id:'db_hc_blackbeans', name:'Black beans (cooked)', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:114}, {label:'1 cup', cals:227}
+    ]},
+    {id:'db_hc_broccoli', name:'Broccoli (steamed)', category:'Home cooking & staples', sizes:[
+      {label:'1 cup', cals:55}, {label:'2 cups', cals:110}
+    ]},
+    {id:'db_hc_avocado', name:'Avocado', category:'Home cooking & staples', sizes:[
+      {label:'½', cals:120}, {label:'1 whole', cals:240}
+    ]},
+    {id:'db_hc_peanutbutter', name:'Peanut butter', category:'Home cooking & staples', sizes:[
+      {label:'1 tbsp', cals:94}, {label:'2 tbsp', cals:188}
+    ]},
+    {id:'db_hc_almonds', name:'Almonds', category:'Home cooking & staples', unit:'1 oz (~23)', cals:164},
+    {id:'db_hc_wholemilk', name:'Whole milk', category:'Home cooking & staples', unit:'1 cup', cals:149},
+    {id:'db_hc_skimmilk', name:'Skim milk', category:'Home cooking & staples', unit:'1 cup', cals:83},
+    {id:'db_hc_cottagecheese', name:'Cottage cheese', category:'Home cooking & staples', sizes:[
+      {label:'½ cup', cals:90}, {label:'1 cup', cals:180}
+    ]},
+    {id:'db_hc_proteinshake', name:'Protein shake (whey + water)', category:'Home cooking & staples', unit:'1 scoop', cals:120},
+    {id:'db_hc_proteinbar', name:'Protein bar', category:'Home cooking & staples', unit:'1 bar', cals:200},
+    {id:'db_hc_wheatbread', name:'Whole wheat bread', category:'Home cooking & staples', sizes:[
+      {label:'1 slice', cals:80}, {label:'2 slices', cals:160}
+    ]},
+    {id:'db_hc_whitebread', name:'White bread', category:'Home cooking & staples', sizes:[
+      {label:'1 slice', cals:75}, {label:'2 slices', cals:150}
+    ]},
+    {id:'db_hc_butter', name:'Butter', category:'Home cooking & staples', unit:'1 tbsp', cals:102},
+    {id:'db_hc_oliveoil', name:'Olive oil', category:'Home cooking & staples', unit:'1 tbsp', cals:119},
+    {id:'db_hc_cheddar', name:'Cheddar cheese', category:'Home cooking & staples', sizes:[
+      {label:'1 oz', cals:113}, {label:'2 oz', cals:226}
+    ]},
+    {id:'db_hc_stringcheese', name:'String cheese', category:'Home cooking & staples', unit:'1 stick', cals:80},
+    {id:'db_hc_hummus', name:'Hummus', category:'Home cooking & staples', sizes:[
+      {label:'2 tbsp', cals:70}, {label:'¼ cup', cals:104}
+    ]},
+    {id:'db_hc_babycarrots', name:'Baby carrots', category:'Home cooking & staples', unit:'10 carrots', cals:35},
+    {id:'db_hc_cucumber', name:'Cucumber', category:'Home cooking & staples', unit:'½ cucumber', cals:23},
+    {id:'db_hc_bellpepper', name:'Bell pepper', category:'Home cooking & staples', unit:'1 medium', cals:30},
+    {id:'db_hc_tomato', name:'Tomato', category:'Home cooking & staples', unit:'1 medium', cals:22},
+    {id:'db_hc_spinach', name:'Spinach (raw)', category:'Home cooking & staples', unit:'2 cups', cals:14},
+    {id:'db_hc_proteinpancakes', name:'Protein pancakes', category:'Home cooking & staples', unit:'2 pancakes', cals:220},
     // Indian
     {id:'db_in_tikkamasala', name:'Chicken tikka masala', category:'Indian', unit:'1 fist', cals:450},
     {id:'db_in_samosa', name:'Samosa', category:'Indian', unit:'1 piece', cals:260},
@@ -1142,6 +1241,7 @@
 
   var dbSearchQuery = '';
   var dbCategoryOpen = null; // null = category picker shown; category name = browsing that category's items
+  var dbSizePickerFor = null; // id of a FOOD_DB item whose size options are expanded, or null
   var workoutFeedbackPending = false; // showing the easy/hard prompt for today's workout task
   var showFitnessAssessment = false; // force-show the assessment card even if already taken (Retake link)
   var fitnessDraft = { pushup: null, squat: null, activity: null }; // in-progress answers before submit
@@ -2957,9 +3057,19 @@
   function foodDbMatches(query){
     if(!query) return [];
     var q = query.toLowerCase();
-    return FOOD_DB.filter(function(it){
-      return it.name.toLowerCase().indexOf(q) >= 0 || it.category.toLowerCase().indexOf(q) >= 0;
-    }).slice(0, 8);
+    // Rank so the most relevant matches surface first instead of being
+    // crowded out by loose category-text matches -- e.g. "fr" should
+    // lead with Fried rice/Fried chicken/Frankfurter (name starts with
+    // "fr"), not bury them under items that only match because their
+    // category text ("Fruit & snacks") happens to contain "fr".
+    var starts = [], contains = [], catMatch = [];
+    FOOD_DB.forEach(function(it){
+      var name = it.name.toLowerCase();
+      if(name.indexOf(q) === 0) starts.push(it);
+      else if(name.indexOf(q) !== -1) contains.push(it);
+      else if(it.category.toLowerCase().indexOf(q) !== -1) catMatch.push(it);
+    });
+    return starts.concat(contains, catMatch).slice(0, 10);
   }
 
   function foodDbCategories(){
@@ -2969,6 +3079,25 @@
   }
 
   function renderFoodDbRow(it){
+    if(it.sizes){
+      var open = dbSizePickerFor === it.id;
+      var calRange = it.sizes[0].cals + '–' + it.sizes[it.sizes.length-1].cals;
+      var row = '<div class="fooddb-row fooddb-row-sized' + (open ? ' open' : '') + '">' +
+        '<span class="fooddb-name">' + esc(it.name) + ' <span class="fooddb-unit">(' + it.sizes.length + ' sizes)</span></span>' +
+        '<span class="fooddb-cals num">' + calRange + '</span>' +
+        '<button class="fooddb-fav" title="Save to common foods" onclick="App.saveDbItemToFavorites(\'' + it.id + '\')">&#9734;</button>' +
+        '<button onclick="App.toggleSizePicker(\'' + it.id + '\')">' + (open ? 'Cancel' : 'Add') + '</button>' +
+      '</div>';
+      if(open){
+        var sizeBtns = it.sizes.map(function(s, si){
+          return '<button type="button" class="fooddb-size-btn" onclick="App.logDbItemSize(\'' + it.id + '\',' + si + ')">' +
+            '<span>' + esc(s.label) + '</span><span class="fooddb-size-cals">' + s.cals + ' kcal</span>' +
+          '</button>';
+        }).join('');
+        row += '<div class="fooddb-size-row">' + sizeBtns + '</div>';
+      }
+      return row;
+    }
     return '<div class="fooddb-row">' +
       '<span class="fooddb-name">' + esc(it.name) + ' <span class="fooddb-unit">(' + esc(it.unit) + ')</span></span>' +
       '<span class="fooddb-cals num">~' + it.cals + '</span>' +
@@ -3419,10 +3548,37 @@
     render();
   };
 
+  App.toggleSizePicker = function(id){
+    dbSizePickerFor = (dbSizePickerFor === id) ? null : id;
+    var el = document.getElementById('foodDbResults');
+    if(el) el.innerHTML = renderFoodDbResultsHtml(dbSearchQuery);
+  };
+
+  App.logDbItemSize = async function(id, sizeIndex){
+    var item = FOOD_DB.find(function(f){ return f.id === id; });
+    if(!item || !item.sizes) return;
+    var size = item.sizes[sizeIndex];
+    if(!size) return;
+    var day = ensureDay(currentDate);
+    day.food.push({ id: uid(), name: item.name + ' (' + size.label + ')', cals: size.cals, estimated: true });
+    dbSizePickerFor = null;
+    await saveLogs();
+    render();
+  };
+
   App.saveDbItemToFavorites = async function(id){
     var item = FOOD_DB.find(function(f){ return f.id === id; });
     if(!item) return;
-    var fav = { id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true };
+    var fav;
+    if(item.sizes){
+      // No single "size" to favorite -- save the middle option as a
+      // reasonable representative default, clearly labeled with which
+      // size it is so it's never mistaken for a fixed single serving.
+      var mid = item.sizes[Math.floor(item.sizes.length / 2)];
+      fav = { id: uid(), name: item.name + ' (' + mid.label + ')', cals: mid.cals, estimated: true };
+    } else {
+      fav = { id: uid(), name: item.name + ' (' + item.unit + ')', cals: item.cals, estimated: true };
+    }
     favorites.food.push(fav);
     await saveFavorites();
     render();

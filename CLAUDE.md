@@ -608,55 +608,77 @@ is completed for the day.
   not a bug — the UI already shows a graceful "couldn't estimate" fallback
   to manual entry.
 
-## Browsing the food database (not just searching it)
+## Browsing AND searching the food database (one system, not two)
 
 `FOOD_DB`'s search box used to show nothing at all until you typed a
-query — you could only find something if you already knew what to call
-it. A fruit-only quick-add widget was tried as a fix for this (tap a
-fruit, tap a size, no typing) but that was explicitly rejected as "too
-one-off" — the actual ask was to be able to browse the *whole*
-inventory, not get a bespoke UI for one food category. What's here now:
+query, and every sized food (fruit) was 5 separate flat rows — typing
+"ap" showed 5 near-identical "Apple (small)"/"Apple (medium)"/etc rows
+instead of one "Apple." A fruit-only quick-add widget was tried as a
+fix for the browsing gap but was explicitly rejected as "too one-off."
+What's here now is one system that both searches and browses the same
+underlying data:
 
+- **`FOOD_DB` entries can have EITHER `{unit, cals}` (one fixed
+  serving) OR `{sizes: [{label, cals}, ...]}` (multiple portions of
+  the same food) — check which shape an entry has before assuming
+  `.cals`/`.unit` exist directly on it.** `renderFoodDbRow` branches
+  on `it.sizes`: a sized item shows a calorie *range* (e.g. "78–135")
+  and its "Add" button toggles an inline size picker
+  (`App.toggleSizePicker`) instead of logging immediately;
+  `App.logDbItemSize(id, sizeIndex)` does the actual logging once a
+  size is picked. A plain item's "Add" still calls `App.logDbItem`
+  directly, unchanged. `App.saveDbItemToFavorites` favorites the
+  *middle* size for a sized item (clearly labeled with which size, so
+  it's never mistaken for a fixed serving) since there's no single
+  size to favorite. **If you add a new sized food, give it `sizes`,
+  not 5 separate near-duplicate entries** — that's the exact pattern
+  this was built to get away from.
+- **Search ranks by relevance, not just filter-and-cap.**
+  `foodDbMatches` sorts into three tiers — name starts with the query,
+  name contains it elsewhere, category text contains it — and
+  concatenates them before slicing to 10. This matters in practice:
+  without it, "fr" surfaced fruit entries (via the *category* text
+  "Fruit & snacks" containing "fr") ahead of "Fried chicken" and
+  "Frankfurter" (which start with "fr" in the *name*) once the DB grew
+  past a few dozen items sharing loose substring matches. Don't
+  flatten this back into a single filter — the ranking is why "ap"
+  leads with Apple instead of "Chicken shawarma wr**ap**."
 - **Empty search box shows a category picker instead of a hint.**
   `foodDbCategories()` derives the list (name + item count) from
-  `FOOD_DB` itself — there's no separate hardcoded category list to
-  keep in sync. Tapping a category (`App.setDbCategory`) shows every
-  item in it using the exact same row markup as search results
-  (`renderFoodDbRow`, factored out so search and browse never visually
-  diverge); `App.clearDbCategory` (the "← All categories" link) goes
-  back. Typing in the search box still searches across everything
-  regardless of which category is open — search takes precedence over
-  browse in `renderFoodDbResultsHtml`.
-- **The 10-fruit sizing feature became real `FOOD_DB` entries**, not a
-  separate data structure — 5 sized variants each (e.g. `Apple —
-  extra small/small/medium/large/extra large`) under the existing
-  "Fruit & snacks" category, replacing the old single-guessed-size
-  Apple/Banana entries that were there before. Whole fruits use
-  small→extra-large sizing; fruits normally eaten loose or cut
-  (grapes, strawberries, blueberries, watermelon, pineapple) use
-  ½-to-3-cup portions instead, since "a small handful of grapes" isn't
-  a real serving concept the way "a small apple" is — that reasoning
-  carried over from the rejected one-off version, only the *delivery
-  mechanism* (real DB entries + generic browse UI, not a bespoke
-  fruit-only widget) changed. If asked to size more foods this way,
-  add them as real `FOOD_DB` entries under whatever category actually
-  fits, not a new special-cased UI.
-- `dbCategoryOpen` (which category is expanded, or `null`) is
-  transient UI state, not persisted.
-- Category chips and the back link use `onpointerdown` +
-  `touch-action:manipulation`, matching the PIN keypad fix — meant to
-  feel instant on tap.
+  `FOOD_DB` itself. Tapping a category (`App.setDbCategory`) shows
+  every item in it via the same `renderFoodDbRow` search results use
+  (so browse and search never visually diverge, and sized items get
+  their size picker in category view too); `App.clearDbCategory` (the
+  "← All categories" link) goes back. Typing still searches across
+  everything regardless of which category is open.
+- `dbCategoryOpen` (expanded category, or `null`) and
+  `dbSizePickerFor` (id of the item whose size picker is open, or
+  `null`) are transient UI state, not persisted.
+- Category chips, the back link, and size-picker buttons all use
+  `onpointerdown` + `touch-action:manipulation`, matching the PIN
+  keypad fix — meant to feel instant on tap.
 
 ## Food database
 
-- `FOOD_DB` is a hardcoded array (181 items as of the last count — check
-  `FOOD_DB.length` rather than trust this number long-term) of common
-  NYC foods with best-estimate calories, meant for instant offline
-  search *and* browsing (see the section above) — not a verified
-  nutrition database. If asked to add more items, keep the same shape
-  (`{id, name, category, unit, cals}`) and the same honesty standard:
-  ground estimates against real sources where feasible, and don't invent
-  false precision.
+- `FOOD_DB` is a hardcoded array (181 distinct foods as of the last
+  count — check `FOOD_DB.length` rather than trust this number
+  long-term; several entries expand to more than one loggable portion
+  via `sizes`, see the section above) of common foods with
+  best-estimate calories, meant for instant offline search and
+  browsing — not a verified nutrition database. If asked to add more
+  items, keep the same shape (`{id, name, category, unit, cals}` for a
+  single fixed serving, or `{id, name, category, sizes:[{label,
+  cals}, ...]}` for a food logged at variable portions) and the same
+  honesty standard: ground estimates against real sources where
+  feasible, and don't invent false precision.
+- Categories are organic, not a fixed enum — `foodDbCategories()`
+  derives them from whatever's actually in `FOOD_DB`. "Home cooking &
+  staples" was added alongside the mostly-restaurant/takeout original
+  categories to cover plain everyday foods (grilled chicken breast,
+  rice, eggs, bread, produce) that people actually cook and log, not
+  just what's available for takeout — if the existing categories don't
+  fit a new item, adding a new category is fine, it'll show up in the
+  picker automatically.
 
 ## Deployment
 
