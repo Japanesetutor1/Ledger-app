@@ -628,10 +628,22 @@ is completed for the day.
   user-facing benefit. Don't "fix" this mismatch unprompted. **Pushing to
   `main` triggers an automatic Railway rebuild and redeploy** — no manual
   step needed. Live at the Railway-generated domain shown in that project.
-- There is no CI/test suite. Before committing changes to `index.html`,
-  at minimum verify the extracted `<script>` block has valid JS syntax
-  (e.g. `node --check`) — a broken script tag takes down the whole app
-  since it's a single file.
+- There is no CI/test suite, but there is `check.js` (plain Node, zero
+  deps, matches the app's own no-npm-dependencies rule) — **run
+  `node check.js` before committing any change to `index.html`.** It
+  checks three things: the extracted `<script>` block has valid JS syntax;
+  every `settings.<field> = ` assignment anywhere in the app survives
+  `App.saveSettingsFromForm`'s full-object rebuild (this exact bug has
+  shipped twice — see the storage note near the top of this file — so this
+  check exists specifically to catch a third time automatically instead of
+  relying on someone remembering to check by hand); and `mascotSVG` renders
+  without throwing for every class × color scheme × physique-score band,
+  including a check that no avatar class name matches one already flagged
+  for a trademark concern. It is intentionally narrow (three specific,
+  previously-real bugs), not a general test suite — don't treat a clean
+  run as proof the rest of a change works, and extend it (rather than
+  writing a parallel one-off script) if you find another recurring bug
+  shape worth automating.
 
 ## Working style
 
