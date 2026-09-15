@@ -112,9 +112,8 @@
   @media(max-width:640px){ .summary{ grid-template-columns:repeat(2,1fr); } }
 
   /* ---------- Panels ---------- */
-  .panels{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
-  .panels-single{ grid-template-columns:1fr; max-width:480px; }
-  @media(max-width:760px){ .panels{ grid-template-columns:1fr; } }
+  .credit-text{ color:var(--credit); }
+  .debit-text{ color:var(--debit); }
 
   .quick-panel-btn{
     display:flex; align-items:center; gap:10px; width:100%; text-align:left;
@@ -140,21 +139,12 @@
     position:sticky; top:0; background:inherit; z-index:1;
   }
   .simple-modal-head h2{ font-size:14px; margin:0; font-weight:600; flex-shrink:0; }
-  .simple-modal-head .total{ flex:1; color:var(--text-dim); }
+  .simple-modal-head .total{ flex:1; color:var(--text-dim); font-size:13px; }
   .simple-modal-close{
     background:none; border:none; color:var(--text-faint); font-size:22px; line-height:1;
     cursor:pointer; padding:0 2px; flex-shrink:0;
   }
   .simple-modal-close:hover{ color:var(--text); }
-  .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
-  .panel-head{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:12px 14px; border-bottom:1px solid var(--border);
-  }
-  .panel-head h2{ font-size:13px; margin:0; font-weight:600; }
-  .panel-head h2.credit-text{ color:var(--credit); }
-  .panel-head h2.debit-text{ color:var(--debit); }
-  .panel-head .total{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text-dim); }
   .entry-list{ list-style:none; margin:0; padding:0; max-height:260px; overflow-y:auto; }
   .entry-row{
     display:flex; align-items:center; justify-content:space-between;
@@ -859,6 +849,7 @@
   var avatarPickerOpen = false;
   var foodModalOpen = false;
   var waterModalOpen = false;
+  var exerciseModalOpen = false;
   var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
@@ -2693,12 +2684,13 @@
     html += renderWeightStrip();
     html += renderFoodQuickButton();
     html += renderWaterQuickButton();
-    html += renderPanels();
+    html += renderExerciseQuickButton();
     html += renderTrend();
     html += renderAvatarPicker();
     html += renderRankUpCelebration();
     html += renderFoodModal();
     html += renderWaterModal();
+    html += renderExerciseModal();
 
     app.innerHTML = html;
     bindDynamicHandlers();
@@ -3186,15 +3178,30 @@
     );
   }
 
-  function renderPanels(){
+  function renderExerciseQuickButton(){
+    var day = ensureDayReadOnly(currentDate);
+    var exTotal = day.exercise.reduce(function(a,e){return a+e.cals;},0);
+    var entryCount = day.exercise.length;
+    return (
+      '<button type="button" class="quick-panel-btn quick-panel-exercise" onclick="App.toggleExerciseModal()">' +
+        '<span class="quick-panel-label credit-text">Exercise</span>' +
+        '<span class="quick-panel-value num">' + round(exTotal) + ' kcal &middot; ' + entryCount + (entryCount === 1 ? ' entry' : ' entries') + '</span>' +
+        '<span class="quick-panel-arrow">&rsaquo;</span>' +
+      '</button>'
+    );
+  }
+
+  function renderExerciseModal(){
+    if(!exerciseModalOpen) return '';
     var day = ensureDayReadOnly(currentDate);
     var exercise = day.exercise;
     var exTotal = exercise.reduce(function(a,e){return a+e.cals;},0);
-
     return (
-      '<div class="panels panels-single">' +
-        '<div class="panel">' +
-          '<div class="panel-head"><h2 class="credit-text">Exercise</h2><span class="total num">' + round(exTotal) + '</span></div>' +
+      '<div class="simple-modal-backdrop" onclick="App.toggleExerciseModal()">' +
+        '<div class="simple-modal" onclick="event.stopPropagation()">' +
+          '<div class="simple-modal-head"><h2 class="credit-text">Exercise</h2><span class="total num">' + round(exTotal) + '</span>' +
+            '<button type="button" class="simple-modal-close" onclick="App.toggleExerciseModal()">&times;</button>' +
+          '</div>' +
           renderFavoritesRow('exercise') +
           renderEntryList(exercise, 'exercise') +
           '<div class="add-row">' +
@@ -3496,6 +3503,11 @@
 
   App.toggleWaterModal = function(){
     waterModalOpen = !waterModalOpen;
+    render();
+  };
+
+  App.toggleExerciseModal = function(){
+    exerciseModalOpen = !exerciseModalOpen;
     render();
   };
 

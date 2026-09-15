@@ -730,42 +730,52 @@ instead.
   being asked to; conflating "log today's food" and "curate my
   favorites list" into one input would confuse both actions.
 
-## Food and Water are compact buttons + modals, not always-visible panels
+## Food, Water, and Exercise are compact buttons + modals, not always-visible panels
 
-Food (entry bar, favorites, today's list) and Water (the full hydration
-widget) used to sit permanently expanded on the main page — real
+All three used to sit permanently expanded on the main page — real
 vertical space, all the time, whether or not someone was actively
-logging anything. Per an explicit ask to make the main screen cleaner:
-both are now a compact one-line button (`renderFoodQuickButton`,
-`renderWaterQuickButton` — just a label + running total + arrow) that
-opens the full thing in a modal (`renderFoodModal`, `renderWaterModal`,
-via `.simple-modal-backdrop`/`.simple-modal`, the same generic pattern
-the avatar picker uses). `App.toggleFoodModal`/`App.toggleWaterModal`
-just flip `foodModalOpen`/`waterModalOpen` and re-render.
+logging anything. Per an explicit ask to make the main screen cleaner,
+Food and Water were converted first; **Exercise was deliberately left
+inline in that pass** (only Food and Water were asked for at the
+time), then converted the same way in a follow-up once it was
+explicitly requested too. All three now work identically: a compact
+one-line button (`renderFoodQuickButton`/`renderWaterQuickButton`/
+`renderExerciseQuickButton` — just a label + running total + arrow)
+that opens the full thing in a modal (`renderFoodModal`/
+`renderWaterModal`/`renderExerciseModal`, via
+`.simple-modal-backdrop`/`.simple-modal`, the same generic pattern the
+avatar picker uses). `App.toggleFoodModal`/`App.toggleWaterModal`/
+`App.toggleExerciseModal` just flip their respective `*ModalOpen` flag
+and re-render. **`renderPanels()` and the old `.panels`/`.panel`/
+`.panel-head` CSS no longer exist** — Exercise was the last thing
+using them, and they were removed rather than left as dead code once
+nothing referenced them. If a fourth thing needs a two-column side-by-
+side layout again someday, it'll need new CSS, not a resurrection of
+`.panels` — that was specific to the old Food+Exercise pairing.
 
-- **Exercise was deliberately NOT converted** — only Food and Water
-  were asked for. Exercise still renders inline via `renderPanels()`
-  exactly as before (now the only panel there, hence the
-  `panels-single` CSS modifier so it doesn't leave an empty grid
-  column on wider screens). Don't convert Exercise to a modal too
-  without being asked — the two are different asks even though they
-  look similar.
 - `renderHydration()` itself is unchanged internally (still the flask
   SVG + buttons + custom input) — it's just called from inside
   `renderWaterModal()` now instead of directly from the main
-  `render()`. Same idea for the food entry bar/favorites/list, now
-  called from inside `renderFoodModal()`.
+  `render()`. Same idea for the food entry bar/favorites/list (inside
+  `renderFoodModal()`) and the exercise favorites/list/add-row (inside
+  `renderExerciseModal()`).
 - **The modal stays open across a log action** — logging something
   inside it triggers the same full `render()` every other log action
-  does, and since `foodModalOpen`/`waterModalOpen` aren't reset by
+  does, and since none of the three `*ModalOpen` flags are reset by
   those actions, the modal correctly reappears open on the next
   render rather than closing after every single item. Don't add a
   close-on-log behavior; someone logging three things in a row
   shouldn't have to reopen the modal twice.
 - `.simple-modal-backdrop`/`.simple-modal`/`.simple-modal-head`/
-  `.simple-modal-close` are generic, reused by both — if a third thing
-  needs this same "compact button -> full modal" treatment later,
-  reuse these classes rather than inventing another modal pattern.
+  `.simple-modal-close` are generic, shared by all three — if a fourth
+  thing needs this same "compact button -> full modal" treatment
+  later, reuse these classes rather than inventing another modal
+  pattern.
+- `.credit-text`/`.debit-text` are now standalone utility classes
+  (`color:var(--credit)`/`color:var(--debit)`) used directly on the
+  quick-panel labels — they used to only exist scoped as
+  `.panel-head h2.credit-text` etc., which would have silently broken
+  once `.panel-head` was removed if they hadn't been generalized first.
 
 ## Food database
 
