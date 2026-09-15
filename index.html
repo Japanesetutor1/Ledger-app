@@ -433,6 +433,29 @@
     position:relative; width:100%; height:100%; border-radius:var(--radius);
     overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
     transition:box-shadow .5s ease; background:none;
+    animation:mascotBob 3.6s ease-in-out infinite;
+  }
+  /* Brief one-shot reactions triggered by logging exercise/water -- see
+     triggerMascotReaction() in JS. Layered as a second comma-separated
+     animation alongside the continuous idle bob (both can target
+     `transform`; for the ~0.9s the reaction plays, its keyframes take
+     over that property, which is fine -- the burst standing out matters
+     more than the idle bob staying perfectly uninterrupted for well
+     under a second). */
+  .mascot-react-exercise{ animation:mascotBob 3.6s ease-in-out infinite, mascotReactExercise .9s ease-out 1; }
+  .mascot-react-water{ animation:mascotBob 3.6s ease-in-out infinite, mascotReactWater .9s ease-out 1; }
+  @keyframes mascotReactExercise{
+    0%{ transform:scale(1) rotate(0deg); filter:drop-shadow(0 0 0 rgba(201,164,76,0)); }
+    25%{ transform:scale(1.08) rotate(-2deg); filter:drop-shadow(0 0 14px rgba(201,164,76,.7)); }
+    50%{ transform:scale(0.97) rotate(2deg); }
+    75%{ transform:scale(1.04) rotate(-1deg); }
+    100%{ transform:scale(1) rotate(0deg); filter:drop-shadow(0 0 0 rgba(201,164,76,0)); }
+  }
+  @keyframes mascotReactWater{
+    0%{ transform:translateY(0) scale(1); filter:drop-shadow(0 0 0 rgba(95,168,211,0)); }
+    30%{ transform:translateY(3px) scale(0.97); filter:drop-shadow(0 0 12px rgba(95,168,211,.7)); }
+    60%{ transform:translateY(-2px) scale(1.02); }
+    100%{ transform:translateY(0) scale(1); filter:drop-shadow(0 0 0 rgba(95,168,211,0)); }
   }
   .mascot-portrait-img{
     position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center center;
@@ -481,7 +504,8 @@
   }
   @media (prefers-reduced-motion: reduce){
     .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb, .mage-ice, .mage-fire, .mage-earth, .mage-tea,
-    .ranger-arrow, .ranger-explosive, .ranger-fire, .ranger-magic1, .ranger-magic2, .ranger-magic3, .ranger-boom-burst{ animation:none; }
+    .ranger-arrow, .ranger-explosive, .ranger-fire, .ranger-magic1, .ranger-magic2, .ranger-magic3, .ranger-boom-burst,
+    .mascot-portrait, .mascot-react-exercise, .mascot-react-water{ animation:none; }
   }
   /* Ranger: four arrow types on one shared 16s clock, non-overlapping
      windows, matching the mage's cycle pattern. Each shoots (translateX)
@@ -850,6 +874,16 @@
   var foodModalOpen = false;
   var waterModalOpen = false;
   var exerciseModalOpen = false;
+  var mascotReaction = null; // null | 'exercise' | 'water' -- brief one-shot reaction on the main mascot
+
+  function triggerMascotReaction(kind){
+    mascotReaction = kind;
+    render();
+    setTimeout(function(){
+      mascotReaction = null;
+      render();
+    }, 900);
+  }
   var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
@@ -1713,7 +1747,8 @@
     var glow = physiqueColor(score);
     var blink = opts.blink !== false && !!art.closed;
     var sizeClass = opts.small ? ' mascot-portrait-sm' : '';
-    var html = '<div class="mascot-portrait'+sizeClass+'" style="--mascot-glow:'+glow+'">' +
+    var reactionClass = opts.reaction ? ' mascot-react-' + opts.reaction : '';
+    var html = '<div class="mascot-portrait'+sizeClass+reactionClass+'" style="--mascot-glow:'+glow+'">' +
       '<img class="mascot-portrait-img" src="'+esc(art.open)+'" alt="" draggable="false">';
     if(blink){
       html += '<img class="mascot-portrait-img mascot-portrait-blink" src="'+esc(art.closed)+'" alt="" draggable="false">';
@@ -2739,7 +2774,7 @@
       '<div class="status-panel" style="--status-color:'+color+'">' +
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
-            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotDisplay(phys.score, avatar.cls, avatar.idx) + '</button>' +
+            '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotDisplay(phys.score, avatar.cls, avatar.idx, { reaction: mascotReaction }) + '</button>' +
             '<span class="status-mascot-hint">Customize</span>' +
           '</div>' +
           quoteHtml +
@@ -3663,7 +3698,7 @@
       day[type].push(manualEntry);
       if(type === 'food') dbSearchQuery = '';
       await saveLogs();
-      render();
+      if(type === 'exercise') triggerMascotReaction('exercise'); else render();
       return;
     }
 
@@ -3682,7 +3717,7 @@
       day[type].push(estEntry);
       if(type === 'food') dbSearchQuery = '';
       await saveLogs();
-      render();
+      if(type === 'exercise') triggerMascotReaction('exercise'); else render();
     }catch(e){
       btn.disabled = false; nameEl.disabled = false; calEl.disabled = false; btn.textContent = originalLabel;
       if(errEl) errEl.textContent = "Couldn't estimate that — try entering calories directly.";
@@ -3823,7 +3858,7 @@
     workoutFeedbackPending = false;
     await saveLogs();
     await saveSettings();
-    render();
+    triggerMascotReaction('exercise');
   };
 
   App.logFavorite = async function(type, favId){
@@ -3833,7 +3868,7 @@
     var entry = { id: uid(), name: fav.name, cals: fav.cals, estimated: !!fav.estimated };
     day[type].push(entry);
     await saveLogs();
-    render();
+    if(type === 'exercise') triggerMascotReaction('exercise'); else render();
   };
 
   App.deleteFavorite = async function(type, favId){
@@ -3903,7 +3938,7 @@
     var day = ensureDay(currentDate);
     day.water = Math.max(0, (day.water || 0) + ml);
     await saveLogs();
-    render();
+    triggerMascotReaction('water');
   };
 
   App.addCustomWater = async function(){

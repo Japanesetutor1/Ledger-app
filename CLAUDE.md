@@ -552,6 +552,51 @@ adapting task per exercise — see `WORKOUT_EXERCISES`,
   `WORKOUT_DAY_TYPES` and `WORKOUT_DAY_LABELS`, and give it a row in
   `WORKOUT_TIER_START_REPS` for the assessment to size it correctly.
 
+## Making the (image-avatar) mascot feel alive
+
+Applies only to image-avatar classes (currently just Ranger) — the
+SVG-rig classes already had their own idle animation system
+(`mascotBob`/`mascotBlink`/etc, see "The mascot" section above) and
+this reuses `mascotBob` for consistency rather than inventing a
+parallel keyframe.
+
+- **Idle sway**: `.mascot-portrait{ animation:mascotBob 3.6s ease-in-out
+  infinite; }` — applied to the OUTER wrapper div, not the individual
+  `<img>` elements, specifically so it doesn't collide with
+  `.mascot-portrait-blink`'s own `animation` (opacity crossfade for
+  blinking). Both stacked images move together since they're
+  `position:absolute` children of the animated wrapper.
+- **One-shot reactions on logging exercise/water**
+  (`triggerMascotReaction('exercise'|'water')`, `mascotReaction` module
+  var): sets the flag, renders (which bakes `mascot-react-exercise`/
+  `mascot-react-water` into the mascot's class list for that one
+  render), then clears it via `setTimeout` after 900ms and renders
+  again. Wired into every path that logs exercise or water:
+  `App.addWater` (covers `App.addCustomWater` too, since that calls
+  `addWater` internally), `App.completeWorkoutTask`, `App.logFavorite`
+  (only when `type==='exercise'`), and both branches of `App.addEntry`
+  (only when `type==='exercise'`). **Food logging deliberately has no
+  reaction** — only exercise and water were asked for.
+  - This is a stylized burst (scale/rotate wobble + a colored glow for
+    exercise, a small down-up bob + blue glow for water) layered as a
+    SECOND comma-separated `animation` alongside the idle bob — it is
+    **not** a literal clap or drinking-motion pose. The Ranger is a
+    flat illustrated image, not a rigged character with separate
+    limbs; CSS can crossfade her eyes (two nearly-identical frames)
+    but can't move just her arms independently. A literal clap/sip
+    pose would need new art frames from the same img2img/same-seed
+    workflow used for the blink pair — flagged to the user as a
+    phase 2, not attempted here.
+  - `opts.reaction` on `mascotDisplay()` is only ever passed at the
+    ONE call site rendering the main status-panel mascot — avatar
+    picker thumbnails and the picker's own preview never receive it,
+    verified via Playwright (`.avatar-class-thumb .mascot-portrait`
+    never gets a reaction class even right after triggering one).
+  - Both `.mascot-portrait` (idle bob) and `.mascot-react-exercise`/
+    `.mascot-react-water` are included in the existing
+    `prefers-reduced-motion` accommodation block — don't add a new
+    animated class here without adding it there too.
+
 ## Post-workout motivational quote
 
 `MOTIVATIONAL_QUOTES` (~200 lines) is a bank shown next to the avatar
