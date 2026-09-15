@@ -433,7 +433,7 @@
     position:relative; width:100%; height:100%; border-radius:var(--radius);
     overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
     transition:box-shadow .5s ease; background:none;
-    animation:mascotPortraitSway 3.4s ease-in-out infinite;
+    animation:mascotPortraitSway 2.6s ease-in-out infinite;
   }
   /* A dedicated keyframe for the image-avatar portrait, not a reuse of
      the SVG-rig's mascotBob — this one blends a gentle vertical bob
@@ -445,9 +445,9 @@
      SVG-rig classes' idle animation. */
   @keyframes mascotPortraitSway{
     0%,100%{ transform:translateY(0) rotate(0deg); }
-    25%{ transform:translateY(-5px) rotate(-2.8deg); }
-    50%{ transform:translateY(-7px) rotate(0deg); }
-    75%{ transform:translateY(-3px) rotate(2.8deg); }
+    25%{ transform:translateY(-11px) rotate(-8deg); }
+    50%{ transform:translateY(-16px) rotate(0deg); }
+    75%{ transform:translateY(-6px) rotate(8deg); }
   }
   /* Brief one-shot reactions triggered by logging exercise/water -- see
      triggerMascotReaction() in JS. Layered as a second comma-separated
@@ -456,8 +456,8 @@
      over that property, which is fine -- the burst standing out matters
      more than the idle bob staying perfectly uninterrupted for well
      under a second). */
-  .mascot-react-exercise{ animation:mascotPortraitSway 3.4s ease-in-out infinite, mascotReactExercise .9s ease-out 1; }
-  .mascot-react-water{ animation:mascotPortraitSway 3.4s ease-in-out infinite, mascotReactWater .9s ease-out 1; }
+  .mascot-react-exercise{ animation:mascotPortraitSway 2.6s ease-in-out infinite, mascotReactExercise .9s ease-out 1; }
+  .mascot-react-water{ animation:mascotPortraitSway 2.6s ease-in-out infinite, mascotReactWater .9s ease-out 1; }
   @keyframes mascotReactExercise{
     0%{ transform:scale(1) rotate(0deg); filter:drop-shadow(0 0 0 rgba(201,164,76,0)); }
     25%{ transform:scale(1.08) rotate(-2deg); filter:drop-shadow(0 0 14px rgba(201,164,76,.7)); }

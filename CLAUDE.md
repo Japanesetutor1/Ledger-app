@@ -558,26 +558,29 @@ Applies only to image-avatar classes (currently just Ranger) — the
 SVG-rig classes already had their own idle animation system
 (`mascotBob`/`mascotBlink`/etc, see "The mascot" section above).
 
-- **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 3.4s
+- **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 2.6s
   ease-in-out infinite; }` — a dedicated keyframe, not a reuse of the
   SVG-rig's `mascotBob`, specifically so tuning this doesn't also
   change the SVG-rig classes' idle animation. Blends a vertical bob
-  (0 to -7px) with several degrees of rotation (±2.8deg) rather than a
+  (0 to -16px) with significant rotation (±8deg) rather than a
   straight up-down bob — a flat portrait bobbing in a perfectly
   straight line reads as mechanical; the added tilt is what actually
   sells "alive," closer to a natural head/body sway than pure vertical
-  motion. **The first shipped version of this (±1.1deg, -1 to -3px,
-  4.2s) was reported as not visible at all** — verified via
-  Playwright that the animation was genuinely running (not a bug),
-  the amplitude was just too subtle to register at the mascot's
-  on-screen size. Don't tune this back down toward those original
-  numbers without checking it's actually perceptible at real display
-  size, not just technically present in the computed style. Applied
-  to the OUTER wrapper div, not the individual `<img>` elements,
-  specifically so it doesn't collide with `.mascot-portrait-blink`'s
-  own `animation` (opacity crossfade for blinking). Both stacked
-  images move together since they're `position:absolute` children of
-  the animated wrapper.
+  motion. **Went through two rounds of amplitude increases** after
+  being reported as not visible at all, then asked to be dialed up
+  much further still — current numbers are roughly 3x the second
+  version and ~7x the original (±1.1deg/-3px/4.2s). Verified visually
+  at each step that it stays contained within `.status-mascot`'s
+  130×143px box and doesn't overlap the "Customize" label or bleed
+  into neighboring content — if pushed further, re-check that
+  containment, since `.status-mascot` itself does not clip overflow.
+  Don't tune this back down toward earlier values without checking
+  it's actually perceptible at real display size, not just present in
+  computed style. Applied to the OUTER wrapper div, not the individual
+  `<img>` elements, specifically so it doesn't collide with
+  `.mascot-portrait-blink`'s own `animation` (opacity crossfade for
+  blinking). Both stacked images move together since they're
+  `position:absolute` children of the animated wrapper.
 - **One-shot reactions on logging exercise/water**
   (`triggerMascotReaction('exercise'|'water')`, `mascotReaction` module
   var): sets the flag, renders (which bakes `mascot-react-exercise`/
