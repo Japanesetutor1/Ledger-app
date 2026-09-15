@@ -113,7 +113,39 @@
 
   /* ---------- Panels ---------- */
   .panels{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  .panels-single{ grid-template-columns:1fr; max-width:480px; }
   @media(max-width:760px){ .panels{ grid-template-columns:1fr; } }
+
+  .quick-panel-btn{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:12px; cursor:pointer; touch-action:manipulation;
+  }
+  .quick-panel-btn:hover{ border-color:var(--gold); }
+  .quick-panel-label{ font-weight:600; font-size:13px; flex-shrink:0; width:52px; }
+  .quick-panel-value{ flex:1; color:var(--text-dim); font-size:13px; }
+  .quick-panel-arrow{ color:var(--text-faint); font-size:20px; flex-shrink:0; }
+
+  .simple-modal-backdrop{
+    position:fixed; inset:0; background:rgba(6,8,10,.72); z-index:50;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .simple-modal{
+    background:linear-gradient(160deg,#12161c,#0d1014); border:1px solid var(--border);
+    border-radius:var(--radius); max-width:460px; width:100%; max-height:88vh; overflow-y:auto;
+    box-shadow:0 12px 40px -8px rgba(0,0,0,.6); animation:rankupPop .2s ease;
+  }
+  .simple-modal-head{
+    display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:inherit; z-index:1;
+  }
+  .simple-modal-head h2{ font-size:14px; margin:0; font-weight:600; flex-shrink:0; }
+  .simple-modal-head .total{ flex:1; color:var(--text-dim); }
+  .simple-modal-close{
+    background:none; border:none; color:var(--text-faint); font-size:22px; line-height:1;
+    cursor:pointer; padding:0 2px; flex-shrink:0;
+  }
+  .simple-modal-close:hover{ color:var(--text); }
   .panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); }
   .panel-head{
     display:flex; justify-content:space-between; align-items:center;
@@ -825,6 +857,8 @@
   var currentDate = todayStr();
   var settingsOpen = false;
   var avatarPickerOpen = false;
+  var foodModalOpen = false;
+  var waterModalOpen = false;
   var reminderDismissed = false;
   var trendWindow = 7;
   var storageError = false;
@@ -2455,7 +2489,7 @@
     }
 
     return [
-      { name:'Log at least two meals', done: (day.food||[]).length >= 2, xp: 10 },
+      { name:'Log your food for the day', done: (day.food||[]).length >= 1, xp: 10 },
       { name: workoutName, done: !!(day.workoutTask && day.workoutTask.done), xp: 15 },
       goalQuest,
       { name:'Log today\'s weight', done: day.weight != null, xp: 10 }
@@ -2657,11 +2691,14 @@
     html += renderFitnessAssessment();
     html += renderWorkoutTask();
     html += renderWeightStrip();
-    html += renderHydration();
+    html += renderFoodQuickButton();
+    html += renderWaterQuickButton();
     html += renderPanels();
     html += renderTrend();
     html += renderAvatarPicker();
     html += renderRankUpCelebration();
+    html += renderFoodModal();
+    html += renderWaterModal();
 
     app.innerHTML = html;
     bindDynamicHandlers();
@@ -3051,6 +3088,33 @@
     );
   }
 
+  function renderWaterQuickButton(){
+    var have = (logs[currentDate] && typeof logs[currentDate].water === 'number') ? logs[currentDate].water : 0;
+    var goal = computeWaterGoalMl(settings);
+    var metGoal = have >= goal;
+    return (
+      '<button type="button" class="quick-panel-btn quick-panel-water" onclick="App.toggleWaterModal()">' +
+        '<span class="quick-panel-label" style="color:#5fa8d3">Water</span>' +
+        '<span class="quick-panel-value num" style="' + (metGoal ? 'color:var(--credit)' : '') + '">' + round(have) + ' / ' + round(goal) + ' ml</span>' +
+        '<span class="quick-panel-arrow">&rsaquo;</span>' +
+      '</button>'
+    );
+  }
+
+  function renderWaterModal(){
+    if(!waterModalOpen) return '';
+    return (
+      '<div class="simple-modal-backdrop" onclick="App.toggleWaterModal()">' +
+        '<div class="simple-modal" onclick="event.stopPropagation()">' +
+          '<div class="simple-modal-head"><h2>Water</h2><span></span>' +
+            '<button type="button" class="simple-modal-close" onclick="App.toggleWaterModal()">&times;</button>' +
+          '</div>' +
+          renderHydration() +
+        '</div>' +
+      '</div>'
+    );
+  }
+
   function renderHydration(){
     var day = ensureDay ? (logs[currentDate] || { water: 0 }) : { water: 0 };
     var have = (logs[currentDate] && typeof logs[currentDate].water === 'number') ? logs[currentDate].water : 0;
@@ -3085,20 +3149,50 @@
 
 
 
-  function renderPanels(){
+  // Food used to be a full always-visible panel (entry bar, favorites,
+  // today's list) sitting inline on the main page. That's now a compact
+  // button showing just the running total -- tap it to open everything
+  // else in a modal. Exercise was NOT asked to change and stays inline;
+  // don't convert it to a modal too without being asked.
+  function renderFoodQuickButton(){
     var day = ensureDayReadOnly(currentDate);
-    var food = day.food, exercise = day.exercise;
-    var foodTotal = food.reduce(function(a,f){return a+f.cals;},0);
-    var exTotal = exercise.reduce(function(a,e){return a+e.cals;},0);
-
+    var foodTotal = day.food.reduce(function(a,f){return a+f.cals;},0);
+    var entryCount = day.food.length;
     return (
-      '<div class="panels">' +
-        '<div class="panel">' +
-          '<div class="panel-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span></div>' +
+      '<button type="button" class="quick-panel-btn quick-panel-food" onclick="App.toggleFoodModal()">' +
+        '<span class="quick-panel-label debit-text">Food</span>' +
+        '<span class="quick-panel-value num">' + round(foodTotal) + ' kcal &middot; ' + entryCount + (entryCount === 1 ? ' entry' : ' entries') + '</span>' +
+        '<span class="quick-panel-arrow">&rsaquo;</span>' +
+      '</button>'
+    );
+  }
+
+  function renderFoodModal(){
+    if(!foodModalOpen) return '';
+    var day = ensureDayReadOnly(currentDate);
+    var food = day.food;
+    var foodTotal = food.reduce(function(a,f){return a+f.cals;},0);
+    return (
+      '<div class="simple-modal-backdrop" onclick="App.toggleFoodModal()">' +
+        '<div class="simple-modal" onclick="event.stopPropagation()">' +
+          '<div class="simple-modal-head"><h2 class="debit-text">Food</h2><span class="total num">' + round(foodTotal) + '</span>' +
+            '<button type="button" class="simple-modal-close" onclick="App.toggleFoodModal()">&times;</button>' +
+          '</div>' +
           renderFoodEntryBar() +
           renderFavoritesRow('food') +
           renderEntryList(food, 'food') +
         '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderPanels(){
+    var day = ensureDayReadOnly(currentDate);
+    var exercise = day.exercise;
+    var exTotal = exercise.reduce(function(a,e){return a+e.cals;},0);
+
+    return (
+      '<div class="panels panels-single">' +
         '<div class="panel">' +
           '<div class="panel-head"><h2 class="credit-text">Exercise</h2><span class="total num">' + round(exTotal) + '</span></div>' +
           renderFavoritesRow('exercise') +
@@ -3392,6 +3486,16 @@
 
   App.dismissRankUp = function(){
     rankUpCelebration = null;
+    render();
+  };
+
+  App.toggleFoodModal = function(){
+    foodModalOpen = !foodModalOpen;
+    render();
+  };
+
+  App.toggleWaterModal = function(){
+    waterModalOpen = !waterModalOpen;
     render();
   };
 

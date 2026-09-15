@@ -601,6 +601,15 @@ is completed for the day.
   System's recurring mandatory task), not a generic label, per an
   explicit ask to lean into that theme. Don't casually revert this to
   generic wording.
+- **The food quest checks `>= 1` logged food entry ("Log your food for
+  the day"), not `>= 2` ("Log at least two meals").** The old `>= 2`
+  threshold penalized anyone doing OMAD (one meal a day) or similar
+  intermittent-fasting patterns by design — they'd never be able to
+  complete that quest no matter how consistent they actually were.
+  Don't reintroduce a minimum-meal-count requirement; if a future
+  quest wants to reward thoroughness, tie it to something that doesn't
+  assume a specific eating pattern (e.g. total calories logged,
+  whether the day is "tracked" at all) rather than a meal count.
 - **`levelInfo().rank` is a Hunter Rank (E/D/C/B/A/S), not a generic RPG
   title.** This replaced an earlier "Novice/Adept/Vanguard/Elite/
   Ascendant" title ladder — Hunter Rank is Solo Leveling's actual core
@@ -720,6 +729,43 @@ instead.
   of what was asked. Don't merge it into the main entry bar without
   being asked to; conflating "log today's food" and "curate my
   favorites list" into one input would confuse both actions.
+
+## Food and Water are compact buttons + modals, not always-visible panels
+
+Food (entry bar, favorites, today's list) and Water (the full hydration
+widget) used to sit permanently expanded on the main page — real
+vertical space, all the time, whether or not someone was actively
+logging anything. Per an explicit ask to make the main screen cleaner:
+both are now a compact one-line button (`renderFoodQuickButton`,
+`renderWaterQuickButton` — just a label + running total + arrow) that
+opens the full thing in a modal (`renderFoodModal`, `renderWaterModal`,
+via `.simple-modal-backdrop`/`.simple-modal`, the same generic pattern
+the avatar picker uses). `App.toggleFoodModal`/`App.toggleWaterModal`
+just flip `foodModalOpen`/`waterModalOpen` and re-render.
+
+- **Exercise was deliberately NOT converted** — only Food and Water
+  were asked for. Exercise still renders inline via `renderPanels()`
+  exactly as before (now the only panel there, hence the
+  `panels-single` CSS modifier so it doesn't leave an empty grid
+  column on wider screens). Don't convert Exercise to a modal too
+  without being asked — the two are different asks even though they
+  look similar.
+- `renderHydration()` itself is unchanged internally (still the flask
+  SVG + buttons + custom input) — it's just called from inside
+  `renderWaterModal()` now instead of directly from the main
+  `render()`. Same idea for the food entry bar/favorites/list, now
+  called from inside `renderFoodModal()`.
+- **The modal stays open across a log action** — logging something
+  inside it triggers the same full `render()` every other log action
+  does, and since `foodModalOpen`/`waterModalOpen` aren't reset by
+  those actions, the modal correctly reappears open on the next
+  render rather than closing after every single item. Don't add a
+  close-on-log behavior; someone logging three things in a row
+  shouldn't have to reopen the modal twice.
+- `.simple-modal-backdrop`/`.simple-modal`/`.simple-modal-head`/
+  `.simple-modal-close` are generic, reused by both — if a third thing
+  needs this same "compact button -> full modal" treatment later,
+  reuse these classes rather than inventing another modal pattern.
 
 ## Food database
 
