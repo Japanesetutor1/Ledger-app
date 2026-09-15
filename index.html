@@ -515,6 +515,35 @@
     position:fixed; inset:0; background:rgba(6,8,10,.72); z-index:50;
     display:flex; align-items:center; justify-content:center; padding:20px;
   }
+  .rankup-backdrop{
+    position:fixed; inset:0; background:rgba(4,3,8,.85); z-index:60;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    animation:rankupFadeIn .25s ease;
+  }
+  @keyframes rankupFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  .rankup-modal{
+    background:linear-gradient(160deg,#12161c,#0d1014); border:1px solid var(--gold);
+    border-radius:var(--radius); padding:32px 28px; max-width:360px; width:100%;
+    text-align:center; box-shadow:0 0 40px -6px rgba(201,164,76,.35), 0 12px 40px -8px rgba(0,0,0,.6);
+    animation:rankupPop .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes rankupPop{ from{ opacity:0; transform:scale(.9); } to{ opacity:1; transform:scale(1); } }
+  .rankup-label{
+    font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; letter-spacing:3px;
+    color:var(--gold); text-shadow:0 0 12px rgba(201,164,76,.6); margin-bottom:18px;
+  }
+  .rankup-ranks{
+    display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:16px;
+    font-family:'IBM Plex Mono',monospace; font-weight:700;
+  }
+  .rankup-rank-old{ font-size:16px; color:var(--text-faint); opacity:.6; }
+  .rankup-arrow{ font-size:16px; color:var(--text-dim); }
+  .rankup-rank-new{ font-size:26px; color:var(--gold); text-shadow:0 0 16px rgba(201,164,76,.7); }
+  .rankup-sub{ font-size:12.5px; color:var(--text-dim); margin-bottom:22px; font-style:italic; }
+  .rankup-dismiss{
+    background:var(--gold); color:#1a1508; border:none; border-radius:var(--radius); font-weight:700;
+    padding:10px 28px; font-size:13px; cursor:pointer;
+  }
   .avatar-picker{
     background:linear-gradient(160deg,#12161c,#0d1014); border:1px solid var(--gold);
     border-radius:var(--radius); padding:20px; max-width:460px; width:100%;
@@ -893,6 +922,7 @@
     authPendingPlain = null;
     authError = '';
     await loadState();
+    await checkRankUp();
     render();
   }
 
@@ -2463,6 +2493,34 @@
     return { xp:xp, level:level, curFloor:curFloor, nextFloor:nextFloor, progress:clamp(progress,0,1), rank:rank };
   }
 
+  var rankUpCelebration = null; // { from, to } when a rank crossing should be celebrated, else null
+
+  // Called once right after loadState() on unlock/profile-creation, NOT
+  // on every render — this is a one-time "did diligence just pay off"
+  // check, not a live-updating indicator (the badge itself already
+  // shows the current rank on every render regardless of this).
+  // settings.lastSeenRank has to be carried through
+  // App.saveSettingsFromForm's settings rebuild like every other
+  // persisted field — see the note on that function.
+  async function checkRankUp(){
+    var currentRank = levelInfo().rank;
+    if(settings.lastSeenRank == null){
+      // First time this has ever been checked for this profile (new
+      // profile, or one that existed before this feature shipped) --
+      // just record where they are now. Don't celebrate a "rank up"
+      // for someone who already had days/XP logged before we started
+      // tracking this.
+      settings.lastSeenRank = currentRank;
+      await saveSettings();
+      return;
+    }
+    if(settings.lastSeenRank !== currentRank){
+      rankUpCelebration = { from: settings.lastSeenRank, to: currentRank };
+      settings.lastSeenRank = currentRank;
+      await saveSettings();
+    }
+  }
+
   function currentStreak(){
     var d = todayStr();
     var streak = 0;
@@ -2603,6 +2661,7 @@
     html += renderPanels();
     html += renderTrend();
     html += renderAvatarPicker();
+    html += renderRankUpCelebration();
 
     app.innerHTML = html;
     bindDynamicHandlers();
@@ -2669,6 +2728,24 @@
         '<div class="quests">' +
           '<div class="quests-head"><h2>Daily Quest</h2><span class="streak num">'+streak+'-day streak</span></div>' +
           '<ul class="quest-list">'+questsHtml+'</ul>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderRankUpCelebration(){
+    if(!rankUpCelebration) return '';
+    return (
+      '<div class="rankup-backdrop" onclick="App.dismissRankUp()">' +
+        '<div class="rankup-modal" onclick="event.stopPropagation()">' +
+          '<div class="rankup-label">RANK UP</div>' +
+          '<div class="rankup-ranks">' +
+            '<span class="rankup-rank-old">[' + esc(rankUpCelebration.from) + '-RANK]</span>' +
+            '<span class="rankup-arrow">&rarr;</span>' +
+            '<span class="rankup-rank-new">[' + esc(rankUpCelebration.to) + '-RANK]</span>' +
+          '</div>' +
+          '<div class="rankup-sub">Consistency got you here. Keep going.</div>' +
+          '<button type="button" class="rankup-dismiss" onclick="App.dismissRankUp()">Continue</button>' +
         '</div>' +
       '</div>'
     );
@@ -3313,6 +3390,11 @@
     render();
   };
 
+  App.dismissRankUp = function(){
+    rankUpCelebration = null;
+    render();
+  };
+
   App.toggleAvatarPicker = function(){
     avatarPickerOpen = !avatarPickerOpen;
     render();
@@ -3376,7 +3458,8 @@
       lastExportAt: settings.lastExportAt,
       workoutProgress: settings.workoutProgress,
       workoutDayIndex: settings.workoutDayIndex,
-      fitnessAssessment: settings.fitnessAssessment
+      fitnessAssessment: settings.fitnessAssessment,
+      lastSeenRank: settings.lastSeenRank
     };
     await saveSettings();
     settingsOpen = false;
@@ -3836,6 +3919,7 @@
         activeProfileId = pr.id;
         authPin = []; authView = null; authMode = null; authError = '';
         await loadState();
+        await checkRankUp();
         render();
       } else {
         authError = 'Incorrect PIN.';
@@ -3870,6 +3954,7 @@
           activeProfileId = authProfileId;
           authPin = []; authView = null; authMode = null; authError = ''; authPendingPlain = null;
           await loadState();
+          await checkRankUp();
           render();
         }
       } else {

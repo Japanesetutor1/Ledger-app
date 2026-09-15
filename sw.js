@@ -1,4 +1,4 @@
-const CACHE = 'solotracker-v31';
+const CACHE = 'solotracker-v32';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './ranger-open.webp', './ranger-closed.webp'];
 
 self.addEventListener('install', function(e){

@@ -615,6 +615,29 @@ is completed for the day.
   aesthetic later, prefer reinforcing this one mechanic (rank-up
   moments, rank-gated content) over decorating more of the UI with
   system-window styling.
+- **Rank-up celebration** (`checkRankUp`, `rankUpCelebration`,
+  `renderRankUpCelebration`, `.rankup-*` CSS) is that reinforcement —
+  a one-time modal when someone's Hunter Rank actually changes, since
+  Solo Leveling's rank-up moments are the payoff for diligence, not
+  just a status readout. `settings.lastSeenRank` tracks what rank was
+  last acknowledged; `checkRankUp()` runs once right after `loadState()`
+  on unlock (all three call sites: PIN entry, PIN reset, new-profile
+  creation — not on every render, this is a one-time "did diligence
+  just pay off" check, not a live indicator) and compares it to the
+  freshly-computed current rank. **First-ever check for a profile
+  silently records the current rank with no celebration** — someone
+  who already has logged history (or just made a profile) shouldn't
+  get a fake "rank up" for a rank they were already at. This is
+  deliberately the one place in the app styled more dramatically (gold
+  glow, pop-in animation, bracket HUD text) — consistent with "reserve
+  the dramatic styling for the one mechanic that deserves it," not a
+  contradiction of the "cleaner" ask.
+- **`settings.lastSeenRank` has to be carried through
+  `App.saveSettingsFromForm`'s settings rebuild**, same as every other
+  persisted field — this is the same gotcha documented under Profiles/
+  PIN lock; it was added to that carry-over list when this feature was
+  built, verified via an explicit before/after Playwright check
+  (save baseline stats, confirm `lastSeenRank` unchanged).
 
 ## AI features (only work inside Claude, not the standalone/Railway build)
 
