@@ -558,87 +558,66 @@ Applies only to image-avatar classes (currently just Ranger) — the
 SVG-rig classes already had their own idle animation system
 (`mascotBob`/`mascotBlink`/etc, see "The mascot" section above).
 
-- **On-screen diagnostics were added after amplitude increases alone
-  didn't resolve a "I don't see any sway" report even at ~7x the
-  original size** — a change that large producing zero visible
-  difference meant the animation likely wasn't running at all for
-  that person, not that it was merely subtle. **This turned out to be
-  exactly right**: the reporter had `prefers-reduced-motion` enabled
-  on their device, which makes ANY amplitude invisible since every
-  animation in this app respects that setting and goes fully inert.
-  The caption under the mascot (`.status-mascot-hint`) shows the
-  current avatar class name (e.g. "Ranger · Customize"), making it
-  checkable whether the sway even applies to the selected avatar
-  (SVG-rig classes never get this animation at all). It also shows an
-  explicit note when
-  `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is
-  true. **Check this caption first** if "the animation doesn't show
-  up" comes up again, before touching amplitude or the transform type.
+**There is currently NO continuous idle animation on the portrait.**
+One was built and shipped through several iterations (bob, then
+bob+rotate, then bob+skewX pinned to the feet, escalating amplitude
+each time chasing what turned out to be a `prefers-reduced-motion`
+setting on the reporter's device) and was ultimately removed entirely
+after being correctly rejected: **a single flat illustrated image has
+no way to move "just the character" separately from "the image" — any
+CSS transform (rotate/skew/translate/scale) moves the same pixels as
+one rigid unit, so any amplitude large enough to notice necessarily
+reads as the picture frame moving, not the character moving.** This
+isn't a tuning problem and no transform variant fixes it. Don't
+re-attempt an idle sway via a CSS transform on the single existing
+portrait frame — it was tried three different ways and correctly
+rejected each time for the same underlying reason.
 
-- **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 3.8s
-  ease-in-out infinite; transform-origin:center bottom; }` — a
-  dedicated keyframe, not a reuse of the SVG-rig's `mascotBob`,
-  specifically so tuning this doesn't also change the SVG-rig
-  classes' idle animation.
-  - **Uses `skewX()`, not `rotate()`, and this distinction is the
-    actual point, not a style preference.** `rotate()` spins the whole
-    rectangular image as one rigid unit around its center — on a
-    photo-like portrait this reads as "someone tilted the picture
-    frame," not "the character is leaning." `skewX()` shears the image
-    content itself (top pixels shift one way, bottom pixels shift the
-    other, relative to `transform-origin`), which — combined with the
-    origin pinned to `center bottom` (her feet/base) rather than the
-    image center — reads as her upper body leaning side to side while
-    staying grounded. This was explicitly reported as wrong ("I wanted
-    the character to move, not the whole picture") after the
-    rotate-based version was finally visible with reduced-motion off;
-    don't revert to `rotate()` for this even at a smaller amplitude,
-    the transform TYPE was the actual problem, not just its size.
-  - **Amplitude history, for context**: went through two escalations
-    (±1.1deg/-3px/4.2s → ±2.8deg/-7px/3.4s → ±8deg/-16px/2.6s) chasing
-    what turned out to be the reduced-motion setting described above.
-    Once that was identified as the real cause, amplitude was reset
-    back down to something genuinely small (±2.2deg skew, 0 to -5px
-    bob, 3.8s cycle) as originally asked for, combined with the
-    `skewX` fix. Don't re-escalate amplitude to solve a "not visible"
-    report without first ruling out reduced-motion and wrong-avatar-
-    class via the diagnostics above — those were the real cause here,
-    not insufficient size.
-  - Applied to the OUTER wrapper div, not the individual `<img>`
-    elements, specifically so it doesn't collide with
-    `.mascot-portrait-blink`'s own `animation` (opacity crossfade for
-    blinking). Both stacked images move together since they're
-    `position:absolute` children of the animated wrapper.
+**The actual right approach, if this comes back**: the blink effect
+already proves it out. `.mascot-portrait-blink` crossfades between two
+near-identical frames (open eyes / closed eyes) via opacity, and the
+frame itself never visibly moves at all — only the content changes,
+which the eye reads as *her* blinking, not the picture shifting. The
+same technique, extended to 2-3 new frames each with a subtly
+different body pose (weight shifted, a slight breathing lean), would
+deliver genuine character motion the same honest way. That requires
+new art from the same img2img/same-seed workflow used for the blink
+pair — it is not something achievable with CSS alone on what exists
+today. If asked for idle motion again, propose that path rather than
+another transform trick.
+
+- **On-screen diagnostics remain in place** (`.status-mascot-hint`
+  shows the current avatar class name, and an explicit note when
+  `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is
+  true) — these were what actually confirmed the amplitude escalation
+  was chasing a real OS setting, not a truly invisible animation.
+  Still useful for any future animation work on this mascot; check
+  this caption before assuming an animation isn't rendering.
 - **One-shot reactions on logging exercise/water**
   (`triggerMascotReaction('exercise'|'water')`, `mascotReaction` module
-  var): sets the flag, renders (which bakes `mascot-react-exercise`/
-  `mascot-react-water` into the mascot's class list for that one
-  render), then clears it via `setTimeout` after 900ms and renders
-  again. Wired into every path that logs exercise or water:
-  `App.addWater` (covers `App.addCustomWater` too, since that calls
-  `addWater` internally), `App.completeWorkoutTask`, `App.logFavorite`
-  (only when `type==='exercise'`), and both branches of `App.addEntry`
-  (only when `type==='exercise'`). **Food logging deliberately has no
-  reaction** — only exercise and water were asked for.
-  - This is a stylized burst (scale/rotate wobble + a colored glow for
-    exercise, a small down-up bob + blue glow for water) layered as a
-    SECOND comma-separated `animation` alongside the idle sway — it is
-    **not** a literal clap or drinking-motion pose. The Ranger is a
-    flat illustrated image, not a rigged character with separate
-    limbs; CSS can crossfade her eyes (two nearly-identical frames)
-    but can't move just her arms independently. A literal clap/sip
-    pose would need new art frames from the same img2img/same-seed
-    workflow used for the blink pair — flagged to the user as a
-    phase 2, not attempted here.
+  var) are UNCHANGED and still shipped — a brief scale/rotate burst
+  with a colored glow, not a continuous idle animation. These share
+  the exact same "whole image moves as one rigid unit" characteristic
+  as the removed idle sway (a burst is still a transform on the single
+  flat frame) — they simply haven't been flagged as a problem the way
+  the continuous sway was. Worth knowing if they come up in the same
+  conversation: the honest framing above (real motion needs new pose
+  frames; a transform on one flat image always reads as the image
+  moving) applies to these too, not just the idle sway.
+  - Wired into every path that logs exercise or water: `App.addWater`
+    (covers `App.addCustomWater` too, since that calls `addWater`
+    internally), `App.completeWorkoutTask`, `App.logFavorite` (only
+    when `type==='exercise'`), and both branches of `App.addEntry`
+    (only when `type==='exercise'`). **Food logging deliberately has
+    no reaction** — only exercise and water were asked for.
   - `opts.reaction` on `mascotDisplay()` is only ever passed at the
     ONE call site rendering the main status-panel mascot — avatar
     picker thumbnails and the picker's own preview never receive it,
     verified via Playwright (`.avatar-class-thumb .mascot-portrait`
     never gets a reaction class even right after triggering one).
-  - Both `.mascot-portrait` (idle bob) and `.mascot-react-exercise`/
-    `.mascot-react-water` are included in the existing
-    `prefers-reduced-motion` accommodation block — don't add a new
-    animated class here without adding it there too.
+  - `.mascot-react-exercise`/`.mascot-react-water` are included in the
+    existing `prefers-reduced-motion` accommodation block — don't add
+    a new animated class here without adding it there too.
 
 ## Post-workout motivational quote
 

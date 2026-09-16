@@ -434,32 +434,32 @@
     position:relative; width:100%; height:100%; border-radius:var(--radius);
     overflow:hidden; box-shadow:0 0 0 2px var(--mascot-glow, transparent), 0 0 18px -2px var(--mascot-glow, transparent);
     transition:box-shadow .5s ease; background:none;
-    animation:mascotPortraitSway 3.8s ease-in-out infinite;
-    transform-origin:center bottom;
   }
-  /* A dedicated keyframe for the image-avatar portrait, not a reuse of
-     the SVG-rig's mascotBob — this one blends a gentle vertical bob
-     with a slight rotation, which reads much more like a natural
-     head/body sway than a straight up-down bob alone (a flat portrait
-     bobbing in a perfectly straight line looks mechanical; adding a
-     couple degrees of tilt sells it as alive). Kept separate from
-     mascotBob specifically so tuning this doesn't also change the
-     SVG-rig classes' idle animation. */
-  @keyframes mascotPortraitSway{
-    0%,100%{ transform:translateY(0) skewX(0deg); }
-    25%{ transform:translateY(-3px) skewX(-2.2deg); }
-    50%{ transform:translateY(-5px) skewX(0deg); }
-    75%{ transform:translateY(-2px) skewX(2.2deg); }
-  }
+  /* No continuous idle animation on the portrait itself. A single flat
+     illustrated image has no way to move "just the character" separately
+     from "the image" -- rotate/skew/translate/scale all transform the
+     same pixels as one rigid unit, so any amplitude large enough to
+     notice reads as the picture frame shifting, not the character
+     moving. That was tried (bob, then bob+rotate, then bob+skewX from
+     the feet) and explicitly rejected as looking like frame movement,
+     not character movement -- correctly, since that's literally what a
+     transform on a flat image is. Don't try another transform variant
+     on the single existing frame to solve this; it can't be solved that
+     way. The blink effect (below) is proof of the actual right
+     approach: crossfading between two near-identical frames where only
+     the eyes differ makes her blink with the frame never visibly moving
+     at all. The same technique, extended to 2-3 frames with a subtly
+     different body pose each (weight shifted slightly, a breathing
+     lean), would deliver real character motion the same way -- but
+     that requires new art frames from the same img2img/same-seed
+     workflow, not a CSS trick on what exists now. */
   /* Brief one-shot reactions triggered by logging exercise/water -- see
-     triggerMascotReaction() in JS. Layered as a second comma-separated
-     animation alongside the continuous idle bob (both can target
-     `transform`; for the ~0.9s the reaction plays, its keyframes take
-     over that property, which is fine -- the burst standing out matters
-     more than the idle bob staying perfectly uninterrupted for well
-     under a second). */
-  .mascot-react-exercise{ animation:mascotPortraitSway 3.8s ease-in-out infinite, mascotReactExercise .9s ease-out 1; }
-  .mascot-react-water{ animation:mascotPortraitSway 3.8s ease-in-out infinite, mascotReactWater .9s ease-out 1; }
+     triggerMascotReaction() in JS. These share the same "whole image
+     moves" limitation described above (a scale/rotate burst on the
+     single flat frame), just not yet flagged as a problem the way the
+     continuous idle sway was -- worth knowing if they come up too. */
+  .mascot-react-exercise{ animation:mascotReactExercise .9s ease-out 1; }
+  .mascot-react-water{ animation:mascotReactWater .9s ease-out 1; }
   @keyframes mascotReactExercise{
     0%{ transform:scale(1) rotate(0deg); filter:drop-shadow(0 0 0 rgba(201,164,76,0)); }
     25%{ transform:scale(1.08) rotate(-2deg); filter:drop-shadow(0 0 14px rgba(201,164,76,.7)); }
@@ -521,7 +521,7 @@
   @media (prefers-reduced-motion: reduce){
     .mascot-figure, .mascot-eye, .mascot-sparkle, .mascot-orb, .mage-ice, .mage-fire, .mage-earth, .mage-tea,
     .ranger-arrow, .ranger-explosive, .ranger-fire, .ranger-magic1, .ranger-magic2, .ranger-magic3, .ranger-boom-burst,
-    .mascot-portrait, .mascot-react-exercise, .mascot-react-water{ animation:none; }
+    .mascot-react-exercise, .mascot-react-water{ animation:none; }
   }
   /* Ranger: four arrow types on one shared 16s clock, non-overlapping
      windows, matching the mage's cycle pattern. Each shoots (translateX)
