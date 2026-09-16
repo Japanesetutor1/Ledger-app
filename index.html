@@ -878,6 +878,43 @@
   }
 
   var TZ_OFFSET_MS = new Date().getTimezoneOffset() * 60000;
+
+  // ---------------- PIN keypad chime ----------------
+  // Synthesized entirely via Web Audio -- no audio files. Each digit
+  // maps to a note in a C major pentatonic scale specifically because
+  // a pentatonic scale has no dissonant intervals between ANY two of
+  // its notes, so whatever 4-digit PIN someone types, the sequence of
+  // tones always sounds pleasant rather than risking an ugly interval
+  // for some digit combinations. audioCtx is created lazily on first
+  // use (inside a tap handler, so it counts as a user gesture for
+  // autoplay-policy purposes) and reused after that.
+  var audioCtx = null;
+  var PIN_CHIME_NOTES = {
+    '1':523.25, '2':587.33, '3':659.25, '4':783.99, '5':880.00,
+    '6':1046.50, '7':1174.66, '8':1318.51, '9':1567.98, '0':1760.00
+  };
+  function playTone(freq, durationSec, volume){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationSec);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + durationSec);
+    }catch(e){ /* Web Audio unavailable or blocked -- fail silently */ }
+  }
+  function playPinChime(digit){
+    playTone(PIN_CHIME_NOTES[digit] || 880, 0.14, 0.12);
+  }
+  function playBackspaceTone(){
+    playTone(392.00, 0.10, 0.09); // a step below the scale, distinct from any digit note
+  }
   var LB_PER_KCAL = 1/3500;
   var KG_PER_KCAL = 1/7700;
 
@@ -4448,6 +4485,7 @@
     if(authSubmitting || authPin.length >= 4) return;
     authPin.push(d);
     if(navigator.vibrate){ try{ navigator.vibrate(8); }catch(e){} }
+    playPinChime(d);
     if(!updatePinDotsInPlace()) render();
     if(authPin.length === 4){
       authSubmitting = true;
@@ -4461,6 +4499,7 @@
     if(authSubmitting) return;
     authPin.pop();
     if(navigator.vibrate){ try{ navigator.vibrate(6); }catch(e){} }
+    playBackspaceTone();
     if(!updatePinDotsInPlace()) render();
   };
 

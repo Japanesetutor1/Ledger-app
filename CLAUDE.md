@@ -140,6 +140,26 @@ PIN. Read this before touching storage, `render()`, or anything under
   use the same `pointerdown` + `touch-action:manipulation` pattern rather
   than plain `onclick` — this is a real, measurable difference on mobile,
   not just a style preference.
+- **Each digit tap plays a synthesized chime** (`playPinChime`,
+  `PIN_CHIME_NOTES`, built on `playTone` / Web Audio API — no audio
+  files). Digits map to notes in a C major pentatonic scale
+  specifically because a pentatonic scale has no dissonant interval
+  between any two of its notes — whatever 4-digit PIN someone types,
+  the resulting tone sequence is guaranteed pleasant rather than
+  risking an ugly interval for some digit combinations. Backspace
+  plays a separate lower tone (392Hz, below the scale) so it's
+  audibly distinct from any digit. `audioCtx` is created lazily on
+  first tap (inside the tap handler, so it counts as a user gesture
+  for browser autoplay-policy purposes — creating it outside a gesture
+  handler would get blocked on many mobile browsers). `playTone`
+  wraps everything in try/catch and fails silently if Web Audio is
+  unavailable — this must never throw and break PIN entry itself.
+  Verified via Playwright with a mocked `AudioContext` (spying on
+  `createOscillator`/`frequency.value` rather than needing real audio
+  output) that digits 1-4 play the correct ascending pentatonic
+  frequencies and backspace plays the distinct lower tone; also
+  reconfirmed the existing PIN speed/timing tests still pass unchanged
+  with the audio calls added.
 - Deleting a profile (`App.deleteProfile`) removes its three namespaced
   storage keys (and IndexedDB mirror copies) along with its `profiles`
   entry — this is real, immediate, irreversible deletion behind one
