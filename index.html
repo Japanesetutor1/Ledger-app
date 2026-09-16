@@ -422,7 +422,7 @@
   .reduced-motion-note{ color:var(--gold); font-size:9.5px; display:inline-block; margin-top:2px; max-width:120px; }
   .workout-quote-bubble{
     position:relative; background:var(--surface-2); border:1px solid var(--gold); border-radius:var(--radius);
-    padding:12px 14px 10px; max-width:280px; flex:1 1 200px; margin-top:6px;
+    padding:12px 14px 10px; max-width:280px; flex:0 1 auto; margin-top:6px; width:fit-content;
   }
   .workout-quote-bubble::before{
     content:''; position:absolute; left:20px; top:-7px; width:12px; height:12px;
@@ -2384,10 +2384,46 @@
   function pickMotivationalQuote(){
     return MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
   }
-  function todaysWorkoutQuote(){
+
+  // Two 12-hour slots per calendar day (00:00-11:59 / 12:00-23:59) --
+  // "a new quote every 12 hours" without needing a running timer, since
+  // this just re-evaluates which slot the current wall-clock time falls
+  // into on every render, same as todayStr() already does for dates.
+  function currentDayHalf(){
+    var h = new Date(Date.now() - TZ_OFFSET_MS).getHours();
+    return h < 12 ? 'am' : 'pm';
+  }
+
+  // Idempotent: assigns a quote to *this* half-slot the first time it's
+  // reached today, and saves it so it stays fixed for the rest of that
+  // slot rather than re-rolling on every render. Safe to call on every
+  // render since it only actually mutates+saves once per slot per day.
+  function ensureTodaysQuoteSlot(){
+    var day = ensureDay(todayStr());
+    if(!day.quotes) day.quotes = {};
+    var half = currentDayHalf();
+    if(!day.quotes[half]){
+      day.quotes[half] = pickMotivationalQuote();
+      saveLogs();
+    }
+  }
+
+  // The one quote shown next to the avatar right now. Baseline is
+  // "2 a day" via the two half-day slots above; completing today's
+  // workout adds a 3rd, bonus quote that takes priority for the rest of
+  // *that same slot* (freshest thing that happened), but doesn't
+  // suppress the other half's slot quote once the day moves past
+  // it -- so a morning workout still lets the afternoon slot show its
+  // own quote later, rather than the workout quote squatting on the
+  // bubble for the rest of the day.
+  function currentMotivationalQuote(){
+    ensureTodaysQuoteSlot();
     var day = logs[todayStr()];
-    if(day && day.workoutTask && day.workoutTask.done && day.workoutTask.quote) return day.workoutTask.quote;
-    return null;
+    if(!day) return null;
+    var half = currentDayHalf();
+    var wt = day.workoutTask;
+    if(wt && wt.done && wt.quote && wt.completedHalf === half) return wt.quote;
+    return (day.quotes && day.quotes[half]) || null;
   }
 
   function exercisesForDayType(dayType){
@@ -2781,7 +2817,7 @@
     }).join('');
 
     var flavor = phys.days === 0 ? 'Log a few days of food and exercise to bring your character online.' : label.flavor;
-    var workoutQuote = todaysWorkoutQuote();
+    var workoutQuote = currentMotivationalQuote();
     var quoteHtml = workoutQuote
       ? '<div class="workout-quote-bubble"><span class="workout-quote-text">&ldquo;' + esc(workoutQuote) + '&rdquo;</span></div>'
       : '';
@@ -3858,7 +3894,7 @@
       day.exercise.push({ id: uid(), name: def.variants[cur.variantIndex] + ' x' + cur.reps, cals: cals, estimated: true });
       snapshot[key] = { variant: def.variants[cur.variantIndex], reps: cur.reps };
     });
-    day.workoutTask = { done: true, feedback: feedback, dayType: dayType, snapshot: snapshot, quote: pickMotivationalQuote() };
+    day.workoutTask = { done: true, feedback: feedback, dayType: dayType, snapshot: snapshot, quote: pickMotivationalQuote(), completedHalf: currentDayHalf() };
 
     // Advance (or hold) each exercise's target for next time, based on
     // how today's assigned reps felt -- only the exercises actually

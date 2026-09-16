@@ -619,11 +619,10 @@ another transform trick.
     existing `prefers-reduced-motion` accommodation block — don't add
     a new animated class here without adding it there too.
 
-## Post-workout motivational quote
+## Motivational quote: 12-hour slots, plus a workout bonus
 
 `MOTIVATIONAL_QUOTES` (~200 lines) is a bank shown next to the avatar
-(`workout-quote-bubble`, wired into `renderStatusPanel`) after a workout
-is completed for the day.
+(`workout-quote-bubble`, wired into `renderStatusPanel`).
 
 - **Deliberately original and unattributed — not sourced from or
   attributed to real people.** A large share of "gym quotes" that
@@ -639,14 +638,45 @@ is completed for the day.
   200 is what got written this pass; more can be added later the same
   way (original, unattributed) rather than by relaxing that rule to
   hit a bigger number faster.
-- `pickMotivationalQuote()` picks one at random; `App.completeWorkoutTask`
-  snapshots the pick onto `logs[date].workoutTask.quote` at completion
-  time, same reasoning as the exercise snapshot elsewhere in this
-  system — fixed once assigned, not re-rolled on every render.
-  `todaysWorkoutQuote()` reads it back for display, gated on *today's*
-  `workoutTask.done` specifically (not whatever `currentDate` is
-  navigated to) — this is a same-day motivational beat, not a
-  historical replay feature.
+- **Cadence: a new quote every 12 hours, plus a workout bonus** — this
+  replaced the original design where a quote only ever appeared after
+  completing that day's workout (meaning no workout = no quote at
+  all, which undersold "motivation is key"). `currentDayHalf()` splits
+  each calendar day into two slots (00:00-11:59 / 12:00-23:59, using
+  the same wall-clock re-evaluation trick as `todayStr()` — no running
+  timer needed, it just checks which slot the current time falls into
+  whenever it's called). `ensureTodaysQuoteSlot()` assigns
+  `logs[date].quotes[half]` the first time that slot is reached each
+  day and saves it, then leaves it alone for the rest of the slot —
+  idempotent, safe to call on every render.
+  `currentMotivationalQuote()` (the read path,
+  called from `renderStatusPanel`) is what decides which one to show:
+  today's workout-completion quote (`workoutTask.quote`) takes
+  priority **only within the same half-slot it was completed in**
+  (`workoutTask.completedHalf`, set at completion time) — a morning
+  workout shows its bonus quote for the rest of the morning, but once
+  the day crosses into the afternoon slot, that slot's own independent
+  quote takes over rather than the workout quote squatting on the
+  bubble for the rest of the day. This is what actually delivers "2 a
+  day normally, 3 if you work out" — verified via Playwright with a
+  mocked clock: AM slot quote at 08:00, a distinct bonus quote right
+  after completing the workout in that same slot, and a THIRD distinct
+  quote once the clock was advanced to 15:00 the same day. Don't
+  collapse this back into "workout quote overrides for the rest of the
+  day" — that was tried conceptually and undercounts the intended 3.
+- **Bubble sizing: `.workout-quote-bubble` must size to its content
+  (`width:fit-content`, `flex:0 1 auto`, `max-width:280px` as a cap
+  only), not grow to fill the flex row (`flex:1 1 200px`, the original
+  and wrong version).** In a `flex-wrap:wrap` row, `flex-grow:1` makes
+  the bubble stretch to fill whatever space is left next to the
+  avatar regardless of how short the actual quote is, which is exactly
+  what was reported as "too big for the quote." Verified via
+  Playwright with a short forced quote ("Keep going.") that the bubble
+  now renders at ~105px instead of the old fixed-feeling ~280px — a
+  longer quote legitimately using close to the full 280px cap (because
+  it needs to wrap across two lines) is correct and not a regression
+  of this fix; check actual rendered width against the text length
+  before assuming this broke again.
 - The bubble's connector arrow points up-left, not sideways — on the
   narrow mobile widths this app is mostly used at, `.status-top`'s
   flex-wrap puts the bubble on its own row below the avatar rather
