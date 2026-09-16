@@ -1121,6 +1121,8 @@
     {id:'db_jd_cornedbeef', name:'Corned beef sandwich', category:'Jewish deli', unit:'1 sandwich', cals:700},
     {id:'db_jd_knish', name:'Potato knish', category:'Jewish deli', unit:'1 piece', cals:300},
     {id:'db_jd_pastramisand', name:'Pastrami sandwich', category:'Jewish deli', unit:'1 sandwich', cals:750},
+    {id:'db_jd_bagellox', name:'Bagel with lox and cream cheese', category:'Jewish deli', unit:'1 bagel', cals:450},
+    {id:'db_jd_kugel', name:'Kugel', category:'Jewish deli', unit:'1 slice', cals:280},
     // Diner
     {id:'db_dn_cheeseburgerfries', name:'Cheeseburger with fries', category:'Diner', unit:'1 plate', cals:900},
     {id:'db_dn_baconcheeseburger', name:'Bacon cheeseburger', category:'Diner', unit:'1 burger', cals:750},
@@ -1136,9 +1138,29 @@
     {id:'db_sl_pokebowl', name:'Poke bowl (salmon)', category:'Salads & bowls', unit:'1 bowl', cals:550},
     {id:'db_sl_greek', name:'Greek salad', category:'Salads & bowls', unit:'1 salad', cals:350},
     {id:'db_sl_acai', name:'Acai bowl', category:'Salads & bowls', unit:'1 bowl', cals:450},
+    {id:'db_sl_caesarchicken', name:'Caesar salad with chicken', category:'Salads & bowls', unit:'1 salad', cals:470},
+    {id:'db_sl_cobb', name:'Cobb salad', category:'Salads & bowls', unit:'1 salad', cals:500},
     // Coffee shop
     {id:'db_cf_icedcoffee', name:'Iced coffee with milk', category:'Coffee shop', unit:'medium', cals:120},
     {id:'db_cf_latte', name:'Latte', category:'Coffee shop', unit:'medium', cals:190},
+    {id:'db_cf_cappuccino', name:'Cappuccino', category:'Coffee shop', sizes:[
+      {label:'Small', cals:80}, {label:'Medium', cals:120}, {label:'Large', cals:160}
+    ]},
+    {id:'db_cf_mocha', name:'Mocha', category:'Coffee shop', sizes:[
+      {label:'Small', cals:230}, {label:'Medium', cals:290}, {label:'Large', cals:350}
+    ]},
+    {id:'db_cf_chailatte', name:'Chai latte', category:'Coffee shop', sizes:[
+      {label:'Small', cals:180}, {label:'Medium', cals:240}, {label:'Large', cals:300}
+    ]},
+    {id:'db_cf_frapp', name:'Frappuccino (blended, sweetened)', category:'Coffee shop', sizes:[
+      {label:'Small', cals:250}, {label:'Medium', cals:370}, {label:'Large', cals:460}
+    ]},
+    {id:'db_cf_americano', name:'Americano', category:'Coffee shop', unit:'any size', cals:15},
+    {id:'db_cf_coldbrew', name:'Cold brew (black)', category:'Coffee shop', unit:'any size', cals:5},
+    {id:'db_cf_coldbrewmilk', name:'Cold brew with milk', category:'Coffee shop', unit:'medium', cals:60},
+    {id:'db_cf_espresso', name:'Espresso shot', category:'Coffee shop', unit:'1 shot', cals:5},
+    {id:'db_cf_croissant', name:'Croissant', category:'Coffee shop', unit:'1', cals:280},
+    {id:'db_cf_blueberrymuffin', name:'Blueberry muffin', category:'Coffee shop', unit:'1', cals:380},
     // Food trucks / misc
     {id:'db_ft_xiandumpling', name:"Xi'an-style dumplings", category:'Food trucks', unit:'6 pieces', cals:400},
     {id:'db_ft_katiroll', name:'Chicken kati roll', category:'Food trucks', unit:'1 roll', cals:450},
@@ -1300,20 +1322,31 @@
     {id:'db_th_padthai', name:'Pad thai', category:'Thai', unit:'1 fist', cals:500},
     {id:'db_th_greencurry', name:'Green curry chicken', category:'Thai', unit:'1 fist', cals:450},
     {id:'db_th_springroll', name:'Fried spring roll', category:'Thai', unit:'2 pieces', cals:150},
+    {id:'db_th_tomyum', name:'Tom yum soup', category:'Thai', unit:'1 bowl', cals:150},
+    {id:'db_th_icedtea', name:'Thai iced tea', category:'Thai', unit:'1 cup', cals:220},
+    {id:'db_th_mangostickyrice', name:'Mango sticky rice', category:'Thai', unit:'1 order', cals:450},
     // Sushi / Japanese
     {id:'db_sj_calirol', name:'California roll', category:'Sushi & Japanese', unit:'8 pieces', cals:350},
     {id:'db_sj_spicytuna', name:'Spicy tuna roll', category:'Sushi & Japanese', unit:'8 pieces', cals:380},
     {id:'db_sj_teriyakibowl', name:'Chicken teriyaki bowl', category:'Sushi & Japanese', unit:'1 bowl', cals:550},
     {id:'db_sj_ramen', name:'Ramen', category:'Sushi & Japanese', unit:'1 bowl', cals:500},
+    {id:'db_sj_salmonnigiri', name:'Salmon nigiri', category:'Sushi & Japanese', unit:'4 pieces', cals:200},
+    {id:'db_sj_misosoup', name:'Miso soup', category:'Sushi & Japanese', unit:'1 bowl', cals:40},
+    {id:'db_sj_katsu', name:'Chicken katsu', category:'Sushi & Japanese', unit:'1 order', cals:600},
     // Korean
     {id:'db_kr_bibimbap', name:'Bibimbap', category:'Korean', unit:'1 bowl', cals:550},
     {id:'db_kr_bulgogi', name:'Bulgogi beef', category:'Korean', unit:'1 fist', cals:400},
     {id:'db_kr_kimchifriedrice', name:'Kimchi fried rice', category:'Korean', unit:'1 fist', cals:450},
     {id:'db_kr_friedchicken', name:'Korean fried chicken', category:'Korean', unit:'6 pieces', cals:600},
+    {id:'db_kr_japchae', name:'Japchae (glass noodles)', category:'Korean', unit:'1 fist', cals:350},
+    {id:'db_kr_corndog', name:'Korean corn dog', category:'Korean', unit:'1', cals:450},
+    {id:'db_kr_kimchijjigae', name:'Kimchi jjigae (stew)', category:'Korean', unit:'1 bowl', cals:300},
     // Vietnamese
     {id:'db_vn_banhmi', name:'Banh mi sandwich', category:'Vietnamese', unit:'1 sandwich', cals:450},
     {id:'db_vn_pho', name:'Beef pho', category:'Vietnamese', unit:'1 bowl', cals:450},
     {id:'db_vn_springroll', name:'Fresh spring roll', category:'Vietnamese', unit:'2 pieces', cals:130},
+    {id:'db_vn_icedcoffee', name:'Vietnamese iced coffee', category:'Vietnamese', unit:'1 cup', cals:260},
+    {id:'db_vn_buncha', name:'Vermicelli bowl (bun)', category:'Vietnamese', unit:'1 bowl', cals:450},
     // Bakery & dessert
     {id:'db_bk_blackwhite', name:'Black and white cookie', category:'Bakery & dessert', unit:'1 cookie', cals:380},
     {id:'db_bk_cannoli', name:'Cannoli', category:'Bakery & dessert', unit:'1 piece', cals:300},
@@ -1326,7 +1359,13 @@
     // Beverages
     {id:'db_bv_bubbletea', name:'Bubble tea', category:'Beverages', unit:'medium', cals:350},
     {id:'db_bv_soda', name:'Can of soda', category:'Beverages', unit:'1 can', cals:150},
-    {id:'db_bv_icedtea', name:'Bottled sweetened iced tea', category:'Beverages', unit:'1 bottle', cals:180}
+    {id:'db_bv_icedtea', name:'Bottled sweetened iced tea', category:'Beverages', unit:'1 bottle', cals:180},
+    {id:'db_bv_oj', name:'Orange juice', category:'Beverages', unit:'1 cup', cals:110},
+    {id:'db_bv_chocmilk', name:'Chocolate milk', category:'Beverages', unit:'1 cup', cals:190},
+    {id:'db_bv_sportsdrink', name:'Sports drink', category:'Beverages', unit:'20 oz bottle', cals:140},
+    {id:'db_bv_energydrink', name:'Energy drink', category:'Beverages', unit:'1 can', cals:110},
+    {id:'db_bv_kombucha', name:'Kombucha', category:'Beverages', unit:'1 bottle', cals:60},
+    {id:'db_bv_coconutwater', name:'Coconut water', category:'Beverages', unit:'1 bottle', cals:60},
   ];
 
   var dbSearchQuery = '';

@@ -895,7 +895,7 @@ side layout again someday, it'll need new CSS, not a resurrection of
 
 ## Food database
 
-- `FOOD_DB` is a hardcoded array (181 distinct foods as of the last
+- `FOOD_DB` is a hardcoded array (212 distinct foods as of the last
   count — check `FOOD_DB.length` rather than trust this number
   long-term; several entries expand to more than one loggable portion
   via `sizes`, see the section above) of common foods with
@@ -906,14 +906,21 @@ side layout again someday, it'll need new CSS, not a resurrection of
   cals}, ...]}` for a food logged at variable portions) and the same
   honesty standard: ground estimates against real sources where
   feasible, and don't invent false precision.
-- Categories are organic, not a fixed enum — `foodDbCategories()`
-  derives them from whatever's actually in `FOOD_DB`. "Home cooking &
-  staples" was added alongside the mostly-restaurant/takeout original
-  categories to cover plain everyday foods (grilled chicken breast,
-  rice, eggs, bread, produce) that people actually cook and log, not
-  just what's available for takeout — if the existing categories don't
-  fit a new item, adding a new category is fine, it'll show up in the
-  picker automatically.
+- **Categories are organic, not a fixed enum — there's no
+  `foodDbCategories()` or category picker anymore** (that was removed
+  entirely when Food/Water/Exercise became modals, see "The food entry
+  bar" section above); a food's `category` field is now purely for
+  search-matching (`foodDbMatches` checks it) and doesn't drive any
+  browsing UI. "Home cooking & staples" was added alongside the
+  mostly-restaurant/takeout original categories to cover plain
+  everyday foods (grilled chicken breast, rice, eggs, bread, produce)
+  that people actually cook and log, not just what's available for
+  takeout. When growing the database, check which categories are
+  thin (`grep -c "category:'X'"` per category, or count in a REPL) and
+  fill those first rather than padding categories that already have
+  good coverage — Coffee shop and Beverages were both under 5 items
+  before a later pass brought them up to a dozen-plus with sized drinks
+  (small/medium/large lattes, etc.) and common single-serving items.
 
 ## Deployment
 
