@@ -419,6 +419,7 @@
   .status-mascot:focus-visible{ outline:2px solid var(--gold); outline-offset:3px; }
   .status-mascot svg{ width:100%; height:100%; display:block; pointer-events:none; }
   .status-mascot-hint{ font-size:10px; color:var(--text-faint); }
+  .reduced-motion-note{ color:var(--gold); font-size:9.5px; display:inline-block; margin-top:2px; max-width:120px; }
   .workout-quote-bubble{
     position:relative; background:var(--surface-2); border:1px solid var(--gold); border-radius:var(--radius);
     padding:12px 14px 10px; max-width:280px; flex:1 1 200px; margin-top:6px;
@@ -2789,7 +2790,9 @@
         '<div class="status-top">' +
           '<div class="status-mascot-wrap">' +
             '<button type="button" class="status-mascot" title="Choose your avatar" onclick="App.toggleAvatarPicker()">' + mascotDisplay(phys.score, avatar.cls, avatar.idx, { reaction: mascotReaction }) + '</button>' +
-            '<span class="status-mascot-hint">Customize</span>' +
+            '<span class="status-mascot-hint">' + esc(AVATAR_CLASSES[avatar.cls].label) + ' &middot; Customize' +
+              (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? '<br><span class="reduced-motion-note">Reduced motion is ON on this device — animations are intentionally off</span>' : '') +
+            '</span>' +
           '</div>' +
           quoteHtml +
           '<div class="status-main">' +

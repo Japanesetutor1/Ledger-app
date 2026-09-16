@@ -558,6 +558,25 @@ Applies only to image-avatar classes (currently just Ranger) — the
 SVG-rig classes already had their own idle animation system
 (`mascotBob`/`mascotBlink`/etc, see "The mascot" section above).
 
+- **On-screen diagnostics were added after amplitude increases alone
+  didn't resolve a "I don't see any sway" report even at ~7x the
+  original size** — a change that large producing zero visible
+  difference meant the animation likely wasn't running at all for
+  that person, not that it was merely subtle, and no amount of
+  guessing at bigger numbers was going to fix either of the two real
+  causes. The caption under the mascot (`.status-mascot-hint`) now
+  shows the current avatar class name (e.g. "Ranger · Customize"),
+  making it immediately checkable whether the sway even applies to
+  the currently-selected avatar (SVG-rig classes never get this
+  animation at all). It also shows an explicit note when
+  `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is
+  true — the sway and reaction animations were built from the start to
+  respect that OS setting and go fully inert, so a person with it
+  enabled would see zero sway no matter the amplitude, with no
+  indication why. If asked to debug "the animation doesn't show up"
+  again in the future, check this caption first before touching the
+  keyframes.
+
 - **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 2.6s
   ease-in-out infinite; }` — a dedicated keyframe, not a reuse of the
   SVG-rig's `mascotBob`, specifically so tuning this doesn't also
