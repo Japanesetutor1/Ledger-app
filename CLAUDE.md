@@ -621,8 +621,10 @@ another transform trick.
 
 ## Motivational quote: 12-hour slots, plus a workout bonus
 
-`MOTIVATIONAL_QUOTES` (~200 lines) is a bank shown next to the avatar
-(`workout-quote-bubble`, wired into `renderStatusPanel`).
+`MOTIVATIONAL_QUOTES` (501 lines as of the last count — check
+`MOTIVATIONAL_QUOTES.length` rather than trust this number long-term)
+is a bank shown next to the avatar (`workout-quote-bubble`, wired into
+`renderStatusPanel`).
 
 - **Deliberately original and unattributed — not sourced from or
   attributed to real people.** A large share of "gym quotes" that
@@ -635,9 +637,26 @@ another transform trick.
   reproducing more than a short phrase of someone else's exact words
   runs into the same copyright limits as everywhere else in this app.
   This was explicitly scoped down from "1000 quotes" for this reason —
-  200 is what got written this pass; more can be added later the same
-  way (original, unattributed) rather than by relaxing that rule to
-  hit a bigger number faster.
+  200 is what got written the first pass; more can be added later the
+  same way (original, unattributed) rather than by relaxing that rule
+  to hit a bigger number faster.
+- **A second batch of 301 was added later** (discipline-is-built-not-
+  innate, habits/identity, self-mastery, growth over time, small
+  compounding actions, showing up despite resistance,
+  progress-as-identity), explicitly per a request to "feel free to
+  look up some quotes as well." Web search was used for thematic
+  grounding, not sourcing — and that search turned up direct proof the
+  unattributed policy is the right call, not just caution: one of the
+  "attributed" discipline quotes found online (credited to Abraham
+  Lincoln on an SEO listicle) was word-for-word a line already in this
+  app's own FIRST quote batch, written here as an original,
+  unattributed line. That's a real, observed misattribution, not a
+  hypothetical one. If asked to look up quotes again, use search for
+  themes/phrasing inspiration same as this pass, but keep writing
+  original unattributed lines rather than trusting any site's
+  attribution — they are not reliably sourced. Verified via a Python
+  set-membership check that all 301 new lines were exact-duplicate-free
+  against both each other and the existing 200 before merging.
 - **Cadence: a new quote every 12 hours, plus a workout bonus** — this
   replaced the original design where a quote only ever appeared after
   completing that day's workout (meaning no workout = no quote at
