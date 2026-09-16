@@ -562,44 +562,53 @@ SVG-rig classes already had their own idle animation system
   didn't resolve a "I don't see any sway" report even at ~7x the
   original size** — a change that large producing zero visible
   difference meant the animation likely wasn't running at all for
-  that person, not that it was merely subtle, and no amount of
-  guessing at bigger numbers was going to fix either of the two real
-  causes. The caption under the mascot (`.status-mascot-hint`) now
-  shows the current avatar class name (e.g. "Ranger · Customize"),
-  making it immediately checkable whether the sway even applies to
-  the currently-selected avatar (SVG-rig classes never get this
-  animation at all). It also shows an explicit note when
+  that person, not that it was merely subtle. **This turned out to be
+  exactly right**: the reporter had `prefers-reduced-motion` enabled
+  on their device, which makes ANY amplitude invisible since every
+  animation in this app respects that setting and goes fully inert.
+  The caption under the mascot (`.status-mascot-hint`) shows the
+  current avatar class name (e.g. "Ranger · Customize"), making it
+  checkable whether the sway even applies to the selected avatar
+  (SVG-rig classes never get this animation at all). It also shows an
+  explicit note when
   `window.matchMedia('(prefers-reduced-motion: reduce)').matches` is
-  true — the sway and reaction animations were built from the start to
-  respect that OS setting and go fully inert, so a person with it
-  enabled would see zero sway no matter the amplitude, with no
-  indication why. If asked to debug "the animation doesn't show up"
-  again in the future, check this caption first before touching the
-  keyframes.
+  true. **Check this caption first** if "the animation doesn't show
+  up" comes up again, before touching amplitude or the transform type.
 
-- **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 2.6s
-  ease-in-out infinite; }` — a dedicated keyframe, not a reuse of the
-  SVG-rig's `mascotBob`, specifically so tuning this doesn't also
-  change the SVG-rig classes' idle animation. Blends a vertical bob
-  (0 to -16px) with significant rotation (±8deg) rather than a
-  straight up-down bob — a flat portrait bobbing in a perfectly
-  straight line reads as mechanical; the added tilt is what actually
-  sells "alive," closer to a natural head/body sway than pure vertical
-  motion. **Went through two rounds of amplitude increases** after
-  being reported as not visible at all, then asked to be dialed up
-  much further still — current numbers are roughly 3x the second
-  version and ~7x the original (±1.1deg/-3px/4.2s). Verified visually
-  at each step that it stays contained within `.status-mascot`'s
-  130×143px box and doesn't overlap the "Customize" label or bleed
-  into neighboring content — if pushed further, re-check that
-  containment, since `.status-mascot` itself does not clip overflow.
-  Don't tune this back down toward earlier values without checking
-  it's actually perceptible at real display size, not just present in
-  computed style. Applied to the OUTER wrapper div, not the individual
-  `<img>` elements, specifically so it doesn't collide with
-  `.mascot-portrait-blink`'s own `animation` (opacity crossfade for
-  blinking). Both stacked images move together since they're
-  `position:absolute` children of the animated wrapper.
+- **Idle sway**: `.mascot-portrait{ animation:mascotPortraitSway 3.8s
+  ease-in-out infinite; transform-origin:center bottom; }` — a
+  dedicated keyframe, not a reuse of the SVG-rig's `mascotBob`,
+  specifically so tuning this doesn't also change the SVG-rig
+  classes' idle animation.
+  - **Uses `skewX()`, not `rotate()`, and this distinction is the
+    actual point, not a style preference.** `rotate()` spins the whole
+    rectangular image as one rigid unit around its center — on a
+    photo-like portrait this reads as "someone tilted the picture
+    frame," not "the character is leaning." `skewX()` shears the image
+    content itself (top pixels shift one way, bottom pixels shift the
+    other, relative to `transform-origin`), which — combined with the
+    origin pinned to `center bottom` (her feet/base) rather than the
+    image center — reads as her upper body leaning side to side while
+    staying grounded. This was explicitly reported as wrong ("I wanted
+    the character to move, not the whole picture") after the
+    rotate-based version was finally visible with reduced-motion off;
+    don't revert to `rotate()` for this even at a smaller amplitude,
+    the transform TYPE was the actual problem, not just its size.
+  - **Amplitude history, for context**: went through two escalations
+    (±1.1deg/-3px/4.2s → ±2.8deg/-7px/3.4s → ±8deg/-16px/2.6s) chasing
+    what turned out to be the reduced-motion setting described above.
+    Once that was identified as the real cause, amplitude was reset
+    back down to something genuinely small (±2.2deg skew, 0 to -5px
+    bob, 3.8s cycle) as originally asked for, combined with the
+    `skewX` fix. Don't re-escalate amplitude to solve a "not visible"
+    report without first ruling out reduced-motion and wrong-avatar-
+    class via the diagnostics above — those were the real cause here,
+    not insufficient size.
+  - Applied to the OUTER wrapper div, not the individual `<img>`
+    elements, specifically so it doesn't collide with
+    `.mascot-portrait-blink`'s own `animation` (opacity crossfade for
+    blinking). Both stacked images move together since they're
+    `position:absolute` children of the animated wrapper.
 - **One-shot reactions on logging exercise/water**
   (`triggerMascotReaction('exercise'|'water')`, `mascotReaction` module
   var): sets the flag, renders (which bakes `mascot-react-exercise`/
@@ -613,7 +622,7 @@ SVG-rig classes already had their own idle animation system
   reaction** — only exercise and water were asked for.
   - This is a stylized burst (scale/rotate wobble + a colored glow for
     exercise, a small down-up bob + blue glow for water) layered as a
-    SECOND comma-separated `animation` alongside the idle bob — it is
+    SECOND comma-separated `animation` alongside the idle sway — it is
     **not** a literal clap or drinking-motion pose. The Ranger is a
     flat illustrated image, not a rigged character with separate
     limbs; CSS can crossfade her eyes (two nearly-identical frames)
