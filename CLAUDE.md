@@ -6,7 +6,11 @@ NOT renamed (see the deployment section near the bottom) — that's normal,
 not a mismatch to "fix." Only user-facing strings (title, wordmark, PWA
 manifest, backup filename/error text) were changed at that point. The
 "Debits"/"Credits" panel labels were a separate, later rename (see Design
-system) — "Food"/"Exercise" now. "Balance"/"Running balance" were kept.
+system) — "Food"/"Exercise" now. The calorie summary panel was later
+rebuilt around one hero "Calories remaining" number instead of a
+Budget-left/Balance cell pair (see "Calorie balance sign convention"
+below) — "Running balance" as a label is gone, folded into an "All-time"
+line in that panel's secondary row.
 
 A single-file web app (PWA) for tracking calories, exercise, hydration, and a
 gamified "leveling" layer, built conversationally with Claude in chat and
@@ -187,18 +191,49 @@ and the trend panel's "Avg daily balance" cell. If you add a new place
 that reads balance, match this convention — don't reintroduce the old one
 in just one spot.
 
-**"Budget left" is a deliberately separate, oppositely-signed concept**
-from "Balance" even though both come from the same two numbers
-(`totalBurn`, `intake`). Budget left = `totalBurn - intake`: positive
-means calories still available today (green), negative means you've
-gone over (red) — this is intentionally NOT flipped, because "positive =
-room left" is the intuitive reading for a budget, same as "negative =
-deficit" is the intuitive reading for a balance. Don't try to make these
-two cells share one sign convention; they're answering different
-questions on purpose. The "Burned" cell's sub-text also now explicitly
-labels `computeBMR(settings)` as "BMR" (previously called it "baseline,"
-which was ambiguous in TDEE mode where baseline = BMR × activity, not
-raw BMR).
+**"Budget left" and "Balance" used to be shown as two separate,
+same-styled cells side by side** (`totalBurn - intake` vs.
+`intake - totalBurn`), which the user explicitly flagged as confusing —
+two signed numbers, opposite sign conventions, built from the same two
+underlying figures, sitting next to each other with no visual hierarchy.
+At the user's request ("think about how other people have it"), the
+**calorie summary panel (`renderSummary`) was rebuilt** to lead with one
+hero number instead, the way MyFitnessPal/Lose It/Cronometer-style
+trackers do:
+
+- **`.calorie-hero`** — one large "Calories remaining/over today" number.
+  This IS the old "Budget left" math (`totalBurn - intake`, still NOT
+  flipped — positive/"remaining" reads green via `--credit`, negative/
+  "over" reads red via `--debit`), just given sole visual prominence
+  instead of splitting attention with an oppositely-signed neighbor. A
+  progress bar (`.calorie-bar-inner`, width = intake/goal clamped 0-1)
+  and a Goal − Food + Exercise breakdown row sit underneath it.
+- **`.calorie-secondary`** — a plain-worded two-item row below the hero:
+  "Today: N kcal deficit/surplus" and "All-time: N kcal deficit/surplus".
+  This is exactly the old "Balance" and "Running balance" cells' numbers
+  (`t.balance`, `cumulativeBalance()`, unchanged, un-flipped —
+  `intake - totalBurn`, negative = deficit = good), just spelled out in
+  words ("deficit"/"surplus") rather than shown as a bare signed number,
+  and demoted to secondary position since the hero number above is what
+  most people actually glance at day-to-day. **The word "Running
+  balance" itself is gone** — it's now just the "All-time" line in this
+  same secondary row (`renderRunningBalance()` was deleted as dead code)
+  — this supersedes the "Balance/Running balance were kept" note
+  elsewhere in this file; the *concept* (today's balance, all-time
+  balance) is still there, just relabeled and reformatted, not removed.
+- **Nothing about the underlying math changed.** `dayTotals().balance`
+  is still `intake - totalBurn` (negative = deficit); "Budget left"'s
+  `totalBurn - intake` is still deliberately the opposite convention.
+  `physiqueState()`, `questsForDay()`, the trend chart, and the streak
+  logic all still read the same untouched numbers — only this one
+  panel's *presentation* changed. If you touch calorie display again,
+  don't reintroduce a two-cell same-styled Budget-left/Balance pairing;
+  keep one hero number + a clearly-worded secondary row.
+
+The "Burned" figure's sub-text still explicitly labels
+`computeBMR(settings)` as "BMR" (previously called it "baseline," which
+was ambiguous in TDEE mode where baseline = BMR × activity, not raw
+BMR) — this note carried over from the old layout unchanged.
 
 ## Weight projection (BMR-adaptive)
 

@@ -97,19 +97,34 @@
     padding:0; text-decoration:underline; text-underline-offset:2px;
   }
 
-  /* ---------- Summary ---------- */
-  .summary{
-    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
-    background:var(--border); border:1px solid var(--border); border-radius:var(--radius);
-    overflow:hidden; margin-bottom:24px;
+  /* ---------- Calorie summary ---------- */
+  .calorie-summary{ margin-bottom:24px; }
+  .calorie-hero{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius) var(--radius) 0 0;
+    padding:18px 20px 16px; text-align:center;
   }
-  .summary .cell{ background:var(--surface); padding:14px 16px; }
-  .summary .cell .label{ color:var(--text-dim); font-size:12px; margin-bottom:6px; }
-  .summary .cell .value{ font-size:22px; font-weight:600; }
-  .summary .cell .sub{ color:var(--text-faint); font-size:11px; margin-top:4px; }
+  .calorie-hero-label{ color:var(--text-dim); font-size:12.5px; }
+  .calorie-hero-value{ font-size:40px; font-weight:700; line-height:1.15; margin-top:2px; }
+  .calorie-bar-outer{ height:8px; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; overflow:hidden; margin:12px 0 14px; }
+  .calorie-bar-inner{ height:100%; transition:width .4s ease; }
+  .calorie-breakdown{ display:flex; align-items:flex-end; justify-content:center; gap:10px; }
+  .calorie-bd-item{ display:flex; flex-direction:column; align-items:center; gap:3px; min-width:56px; }
+  .calorie-bd-value{ font-size:15px; font-weight:600; }
+  .calorie-bd-label{ color:var(--text-faint); font-size:10px; text-transform:uppercase; letter-spacing:.05em; }
+  .calorie-bd-op{ color:var(--text-faint); font-size:15px; padding-bottom:15px; }
+  .calorie-hero-sub{ color:var(--text-faint); font-size:11px; margin-top:12px; }
+  .calorie-secondary{
+    display:flex; gap:1px; background:var(--border); border:1px solid var(--border); border-top:none;
+    border-bottom-left-radius:var(--radius); border-bottom-right-radius:var(--radius); overflow:hidden;
+  }
+  .calorie-sec-item{
+    flex:1; background:var(--surface-2); padding:9px 14px; display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+  }
+  .calorie-sec-item > span:last-child{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600; }
+  .calorie-sec-note{ color:var(--text-faint); font-size:11.5px; }
+  @media(max-width:420px){ .calorie-hero-value{ font-size:34px; } .calorie-secondary{ flex-direction:column; } }
   .value.credit{ color:var(--credit); }
   .value.debit{ color:var(--debit); }
-  @media(max-width:640px){ .summary{ grid-template-columns:repeat(2,1fr); } }
 
   /* ---------- Panels ---------- */
   .credit-text{ color:var(--credit); }
@@ -3400,51 +3415,72 @@
     );
   }
 
+  // Redesigned so there's exactly ONE prominent signed number instead of
+  // two ("Budget left" and "Balance") sitting side by side in identical
+  // cells with opposite sign conventions from the same two underlying
+  // figures -- that pairing was flagged as confusing, and comparing it to
+  // how other calorie trackers (MyFitnessPal, Lose It, Cronometer) lay
+  // this out, they all lead with exactly one hero number: how much room
+  // is left today. The underlying math/sign conventions in dayTotals()
+  // are UNCHANGED (still relied on by physiqueState/quests/chart/streak)
+  // -- only this panel's presentation changed. See the "Calorie summary
+  // panel" note in CLAUDE.md for the previous layout and why this
+  // replaced it.
   function renderSummary(t){
     var bmrVal = computeBMR(settings);
 
-    var burnedSub;
+    var goalSub;
     if(t.hasBaseline){
-      burnedSub = (settings.baselineMode === 'tdee')
-        ? ('BMR ' + round(bmrVal) + ' &times; ' + (settings.activityMultiplier||1.2) + ' activity + ' + round(t.exBurn) + ' exercise')
-        : ('BMR ' + round(bmrVal) + ' + ' + round(t.exBurn) + ' exercise');
+      goalSub = (settings.baselineMode === 'tdee')
+        ? ('BMR ' + round(bmrVal) + ' &times; ' + (settings.activityMultiplier||1.2) + ' activity')
+        : ('BMR ' + round(bmrVal) + ' (no activity multiplier)');
     } else {
-      burnedSub = 'no baseline set — only exercise counted';
+      goalSub = 'no baseline set — goal is exercise only';
     }
 
-    // "Budget left" = totalBurn - intake: how many more calories you can
-    // eat today before you've used up everything you've burned. Positive
-    // = room left (green), negative = you've gone over (red). This is a
-    // different framing from "Balance" below on purpose -- one is an
-    // actionable "how much more can I eat" number, the other is a signed
-    // deficit/surplus reading of the day so far.
-    var budgetLeft = t.totalBurn - t.intake;
-    var budgetClass = budgetLeft >= 0 ? 'credit' : 'debit';
-    var budgetDisplay = budgetLeft >= 0 ? round(budgetLeft) : ('&minus;' + Math.abs(round(budgetLeft)));
-    var budgetSub = round(t.totalBurn) + ' budget &minus; ' + round(t.intake) + ' eaten';
+    // Same number as the old "Budget left": totalBurn - intake. Positive
+    // = room left (green), negative = over goal (red). This is now the
+    // one hero figure for the day.
+    var remaining = t.totalBurn - t.intake;
+    var remainingWord = remaining >= 0 ? 'remaining' : 'over';
+    var remainingClass = remaining >= 0 ? 'credit' : 'debit';
+    var remainingDisplay = Math.abs(round(remaining));
 
-    // Balance = intake - totalBurn: negative = deficit (good), positive =
-    // surplus (bad) -- see the comment on dayTotals() for why this is the
-    // opposite sign of "budget left" above even though it's the same two
-    // underlying numbers.
-    var balanceClass = t.balance <= 0 ? 'credit' : 'debit';
+    var pct = t.totalBurn > 0 ? clamp(t.intake / t.totalBurn, 0, 1) : (t.intake > 0 ? 1 : 0);
+    var barColor = t.intake > t.totalBurn ? 'var(--debit)' : 'var(--gold)';
+
+    // Same number as the old "Balance" (intake - totalBurn): negative =
+    // deficit, positive = surplus. Shown as one plainly-worded line
+    // ("140 kcal deficit today") instead of a second raw signed number,
+    // so it can't be misread as contradicting the hero figure above.
     var balanceWord = t.balance <= 0 ? 'deficit' : 'surplus';
+    var balanceClass = t.balance <= 0 ? 'credit' : 'debit';
+
+    var cum = cumulativeBalance();
+    var cumWord = cum <= 0 ? 'deficit' : 'surplus';
+    var cumClass = cum <= 0 ? 'credit' : 'debit';
 
     return (
-      '<div class="summary">' +
-        '<div class="cell"><div class="label">Eaten</div><div class="value debit num">' + round(t.intake) + '</div><div class="sub">' + (logs[currentDate]?(logs[currentDate].food||[]).length:0) + ' entries</div></div>' +
-        '<div class="cell"><div class="label">Burned</div><div class="value credit num">' + round(t.totalBurn) + '</div><div class="sub">' + burnedSub + '</div></div>' +
-        '<div class="cell"><div class="label">Budget left</div><div class="value ' + budgetClass + ' num">' + budgetDisplay + '</div><div class="sub">' + budgetSub + '</div></div>' +
-        '<div class="cell"><div class="label">Balance</div><div class="value ' + balanceClass + ' num">' + sign(t.balance) + Math.abs(round(t.balance)) + '</div><div class="sub">' + balanceWord + ' today</div></div>' +
-        '<div class="cell"><div class="label">Running balance</div><div class="value num">' + renderRunningBalance() + '</div><div class="sub">since first entry</div></div>' +
+      '<div class="calorie-summary">' +
+        '<div class="calorie-hero">' +
+          '<div class="calorie-hero-label">Calories ' + remainingWord + ' today</div>' +
+          '<div class="calorie-hero-value ' + remainingClass + ' num">' + remainingDisplay + '</div>' +
+          '<div class="calorie-bar-outer"><div class="calorie-bar-inner" style="width:' + Math.round(pct*100) + '%;background:' + barColor + ';"></div></div>' +
+          '<div class="calorie-breakdown">' +
+            '<div class="calorie-bd-item"><span class="calorie-bd-value num">' + round(t.totalBurn) + '</span><span class="calorie-bd-label">Goal</span></div>' +
+            '<span class="calorie-bd-op">&minus;</span>' +
+            '<div class="calorie-bd-item"><span class="calorie-bd-value num debit-text">' + round(t.intake) + '</span><span class="calorie-bd-label">Food</span></div>' +
+            '<span class="calorie-bd-op">+</span>' +
+            '<div class="calorie-bd-item"><span class="calorie-bd-value num credit-text">' + round(t.exBurn) + '</span><span class="calorie-bd-label">Exercise</span></div>' +
+          '</div>' +
+          '<div class="calorie-hero-sub">' + goalSub + ' &middot; ' + (logs[currentDate]?(logs[currentDate].food||[]).length:0) + ' food ' + ((logs[currentDate]?(logs[currentDate].food||[]).length:0)===1?'entry':'entries') + '</div>' +
+        '</div>' +
+        '<div class="calorie-secondary">' +
+          '<div class="calorie-sec-item"><span class="calorie-sec-note">Today</span><span class="' + balanceClass + '">' + Math.abs(round(t.balance)) + ' kcal ' + balanceWord + '</span></div>' +
+          '<div class="calorie-sec-item"><span class="calorie-sec-note">All-time</span><span class="' + cumClass + '">' + Math.abs(round(cum)) + ' kcal ' + cumWord + '</span></div>' +
+        '</div>' +
       '</div>'
     );
-  }
-
-  function renderRunningBalance(){
-    var cum = cumulativeBalance();
-    var cls = cum <= 0 ? 'credit' : 'debit'; // negative = net deficit over time = good
-    return '<span class="' + cls + '">' + sign(cum) + Math.abs(round(cum)) + '</span>';
   }
 
   function renderFitnessAssessment(){
