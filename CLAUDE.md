@@ -275,17 +275,61 @@ was rebuilt to actually simulate it:
   unit (lb/kg) — use it for any new weight-delta display rather than
   re-deriving the 0.453592 conversion inline again.
 
+**"What if?" hypothetical projection** (`simulateWhatIf`, in the Trend
+panel below the historical-average projection) was added at the user's
+request: "if you eat like this for x amount of time you will be at y
+weight — 300 more calories per day you will be at this weight." This is
+a *different question* from `simulateForward` above:
+`simulateForward`/`simulateDaysToGoal` project forward from your actual
+logged history (recent average intake/exercise); "What if?" instead lets
+you pick a hypothetical daily calorie change and see where a steady
+version of *that* habit leads, regardless of what you've actually been
+logging.
+
+- **`simulateWhatIf(intakeDeltaKcal, days)`** fixes an absolute daily
+  intake (today's goal burn `+ intakeDeltaKcal`), holds recent average
+  exercise steady (same `avgExerciseBurn(trendWindow)` basis as the
+  history-based projection), and walks forward with the exact same
+  day-by-day BMR-recompute-from-projected-weight loop as
+  `simulateForward` — so this still tapers as projected weight changes
+  rather than assuming a flat rate, same honesty standard as the
+  real-history projection above. Don't simplify this into a flat
+  multiplied rate either, for the same reason.
+- **`intakeDeltaKcal`'s sign convention is the OPPOSITE of
+  `dayTotals().balance`'s, on purpose**, because it's answering a
+  different kind of question in the UI ("what if you ate N kcal/day more
+  or less than your goal burn"): negative = eating that much LESS than
+  goal burn (a deficit → weight loss), positive = eating that much MORE
+  (a surplus → weight gain). This matches how the preset buttons read
+  in plain English but is easy to get backwards if you reuse this
+  parameter name/shape elsewhere expecting the `.balance` convention —
+  don't.
+- UI: `.whatif-presets` shows six preset buttons (±100/300/500 kcal/day),
+  the active one tracked by the module-level `whatIfDelta` var (default
+  `-300`, matching the exact example the user gave; **not persisted** —
+  it's a scratch "what if" toggle, not a saved setting, so it resets to
+  -300 on reload rather than needing a `saveSettingsFromForm` carry-over
+  entry). `App.setWhatIfDelta(n)` sets it and re-renders. Below the
+  presets, three cells show 30/90/180-day projected weight at that
+  hypothetical rate, reusing the same `projCell` rendering helper as the
+  historical projection. Requires `hasBaselineInputs(settings)` same as
+  the rest of this panel — hidden entirely (not shown with a broken
+  number) when there's no baseline to compute BMR from.
+
 ## Design system
 
 - **Panel headers are now plain "Food" / "Exercise"** — the original
   "Debits — food" / "Credits — exercise" ledger-style labels were
   explicitly renamed at the user's request (felt like unnecessary
   jargon once the app wasn't literally branded "Ledger" anymore).
-  "Balance" and "Running balance" were deliberately kept — those read
-  as plain English in a calorie-tracking context, not accounting
-  jargon, so they weren't part of what needed fixing. The underlying
-  `--credit`/`--debit` CSS variable names, the `credit-text`/
-  `debit-text` CSS classes, and the JS balance-sign-convention
+  "Balance" and "Running balance" were, at that time, deliberately
+  kept as plain English, not accounting jargon — they were later
+  folded into the calorie summary panel's hero+secondary-row redesign
+  (see "Calorie balance sign convention" above), where "Running
+  balance" became an "All-time" line instead, but that was a layout
+  change, not a reversal of this jargon-vs-plain-English reasoning.
+  The underlying `--credit`/`--debit` CSS variable names, the
+  `credit-text`/`debit-text` CSS classes, and the JS balance-sign-convention
   comments/naming were all left as internal identifiers — only the
   user-visible label text changed. Don't reintroduce "Debits"/"Credits"
   as display text if asked to touch this area again.

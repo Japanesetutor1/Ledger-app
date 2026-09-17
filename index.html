@@ -358,6 +358,14 @@
   .trend-projection{ margin-top:14px; }
   .trend-projection-label{ color:var(--text-dim); font-size:12px; margin-bottom:8px; }
   .trend-projection-note{ color:var(--text-faint); font-size:11px; line-height:1.55; margin-top:10px; }
+  .trend-projection.whatif{ padding-top:14px; border-top:1px solid var(--border-soft); }
+  .whatif-presets{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .whatif-presets button{
+    background:none; border:1px solid var(--border); color:var(--text-dim);
+    border-radius:var(--radius); padding:5px 11px; font-size:12px; font-family:'IBM Plex Mono',monospace; cursor:pointer;
+  }
+  .whatif-presets button.active{ border-color:var(--gold); color:var(--gold); background:var(--surface-2); }
+  .whatif-sub{ margin-bottom:8px; }
   .trend-empty{ color:var(--text-faint); font-size:13px; padding:6px 2px; }
 
   /* ---------- Settings ---------- */
@@ -954,6 +962,7 @@
   }
   var reminderDismissed = false;
   var trendWindow = 7;
+  var whatIfDelta = -300; // kcal/day, not persisted -- last preset the user tapped in "What if?"
   var storageError = false;
 
   // ---------------- profiles / PIN lock ----------------
@@ -1692,6 +1701,39 @@
       if(!losing && dailyBalance >= -0.5 && i > 14) return null;
     }
     return null; // wouldn't arrive within maxDays at this rate
+  }
+
+  // "What if I ate N kcal/day more or less than my goal burn?" -- a
+  // hypothetical, not a projection of logged history (that's
+  // simulateForward above). intakeDeltaKcal matches how a person actually
+  // reads it: NEGATIVE = eating that much LESS than goal burn (a deficit,
+  // weight loss), POSITIVE = eating that much MORE (a surplus, weight
+  // gain) -- the opposite sign convention from dayTotals().balance
+  // (intake - totalBurn) elsewhere in this app, so don't reuse this
+  // parameter as if it were a balance. Fixes an ABSOLUTE daily intake
+  // (today's goal burn plus intakeDeltaKcal) and holds recent average
+  // exercise steady, then walks forward with the same day-by-day BMR
+  // recompute as simulateForward -- so this still tapers as projected
+  // weight changes rather than assuming a flat rate, same honesty as the
+  // real-history projection.
+  function simulateWhatIf(intakeDeltaKcal, days){
+    if(!hasBaselineInputs(settings)) return null;
+    var s = settings;
+    var weight = s.weightKg;
+    var bmrToday = computeBMR(s);
+    var baselineToday = (s.baselineMode === 'tdee') ? bmrToday * (s.activityMultiplier || 1.2) : bmrToday;
+    var avgEx = avgExerciseBurn(trendWindow) || 0;
+    var fixedIntake = (baselineToday + avgEx) + intakeDeltaKcal;
+    var path = [weight];
+    for(var i=0;i<days;i++){
+      var bmr = computeBMR({ sex:s.sex, age:s.age, heightCm:s.heightCm, weightKg:weight });
+      var baseline = (s.baselineMode === 'tdee') ? bmr * (s.activityMultiplier || 1.2) : bmr;
+      var dailyBalance = (baseline + avgEx) - fixedIntake; // positive = deficit = loss
+      weight = weight - dailyBalance * KG_PER_KCAL;
+      if(weight < 30){ weight = 30; path.push(weight); break; }
+      path.push(weight);
+    }
+    return { startWeightKg: s.weightKg, endWeightKg: weight, deltaKg: weight - s.weightKg, days: path.length - 1 };
   }
 
   // ---------------- AI estimation ----------------
@@ -3922,6 +3964,28 @@
       '</div>'
     );
 
+    // "What if?" -- a hypothetical, not a projection of logged history:
+    // pick a daily change from goal burn and see where a steady version
+    // of that habit leads, using the same BMR-adaptive day-by-day walk as
+    // the "keep up your average" projection above (see simulateWhatIf).
+    var whatIfPresets = [-500, -300, -100, 100, 300, 500];
+    var whatIfSection = hasBaseline ? (
+      '<div class="trend-projection whatif">' +
+        '<div class="trend-projection-label">What if you ate&hellip;</div>' +
+        '<div class="whatif-presets">' +
+          whatIfPresets.map(function(d){
+            return '<button type="button" class="' + (whatIfDelta===d?'active':'') + '" onclick="App.setWhatIfDelta(' + d + ')">' + sign(d) + Math.abs(d) + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="trend-projection-label whatif-sub">kcal/day ' + (whatIfDelta >= 0 ? 'more' : 'less') + ' than your goal burn&hellip;</div>' +
+        '<div class="trend-stats">' +
+          projCell('In 30 days', simulateWhatIf(whatIfDelta, 30)) +
+          projCell('In 90 days', simulateWhatIf(whatIfDelta, 90)) +
+          projCell('In 180 days', simulateWhatIf(whatIfDelta, 180)) +
+        '</div>' +
+      '</div>'
+    ) : '';
+
     return (
       '<div class="trend">' +
         '<div class="trend-head">' +
@@ -3934,6 +3998,7 @@
         '<div class="chart-wrap">' + renderChart(chartDates) + '</div>' +
         '<div class="cell trend-balance-cell"><div class="label">Avg daily balance (' + trendWindow + 'd)</div><div class="value ' + (activeAvg<=0?'credit':'debit') + '">' + (activeAvg!=null?(sign(activeAvg)+Math.abs(round(activeAvg))):'—') + '</div></div>' +
         projectionSection +
+        whatIfSection +
         '<div class="cell trend-eta-cell"><div class="label">Goal ETA</div><div class="value" style="font-size:12.5px;font-weight:400;line-height:1.5;">' + etaText + '</div></div>' +
       '</div>'
     );
@@ -4001,6 +4066,10 @@
   };
   App.setWindow = function(n){
     trendWindow = n;
+    render();
+  };
+  App.setWhatIfDelta = function(n){
+    whatIfDelta = n;
     render();
   };
 
