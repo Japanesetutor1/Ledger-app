@@ -253,7 +253,10 @@ was rebuilt to actually simulate it:
   7/30/90-day horizons side by side, all built from the same
   intake/exercise basis, so the person can see the rate visibly tapering
   the further out the horizon goes — that tapering is the entire point,
-  don't "simplify" this back into a single multiplied rate.
+  don't "simplify" this back into a single multiplied rate. This is the
+  `whatIfDelta === null` ("Your avg") scenario in the combined projection
+  block below — read that section before assuming this is still its own
+  separate UI block, it isn't anymore.
 - **`simulateDaysToGoal(windowN, maxDays)`** does the same day-by-day walk
   but runs until goal weight is crossed, for the "Goal ETA" line, instead
   of dividing total kcal needed by today's flat average rate. This will
@@ -275,16 +278,15 @@ was rebuilt to actually simulate it:
   unit (lb/kg) — use it for any new weight-delta display rather than
   re-deriving the 0.453592 conversion inline again.
 
-**"What if?" hypothetical projection** (`simulateWhatIf`, in the Trend
-panel below the historical-average projection) was added at the user's
-request: "if you eat like this for x amount of time you will be at y
-weight — 300 more calories per day you will be at this weight." This is
-a *different question* from `simulateForward` above:
-`simulateForward`/`simulateDaysToGoal` project forward from your actual
-logged history (recent average intake/exercise); "What if?" instead lets
-you pick a hypothetical daily calorie change and see where a steady
-version of *that* habit leads, regardless of what you've actually been
-logging.
+**"What if?" hypothetical projection** (`simulateWhatIf`) answers a
+*different question* from `simulateForward` above: `simulateForward`/
+`simulateDaysToGoal` project forward from your actual logged history
+(recent average intake/exercise); "What if?" instead lets you pick a
+hypothetical daily calorie change and see where a steady version of
+*that* habit leads, regardless of what you've actually been logging —
+added at the user's request: "if you eat like this for x amount of
+time you will be at y weight — 300 more calories per day you will be
+at this weight."
 
 - **`simulateWhatIf(intakeDeltaKcal, days)`** fixes an absolute daily
   intake (today's goal burn `+ intakeDeltaKcal`), holds recent average
@@ -304,17 +306,36 @@ logging.
   in plain English but is easy to get backwards if you reuse this
   parameter name/shape elsewhere expecting the `.balance` convention —
   don't.
-- UI: `.whatif-presets` shows six preset buttons (±100/300/500 kcal/day),
-  the active one tracked by the module-level `whatIfDelta` var (default
-  `-300`, matching the exact example the user gave; **not persisted** —
-  it's a scratch "what if" toggle, not a saved setting, so it resets to
-  -300 on reload rather than needing a `saveSettingsFromForm` carry-over
-  entry). `App.setWhatIfDelta(n)` sets it and re-renders. Below the
-  presets, three cells show 30/90/180-day projected weight at that
-  hypothetical rate, reusing the same `projCell` rendering helper as the
-  historical projection. Requires `hasBaselineInputs(settings)` same as
-  the rest of this panel — hidden entirely (not shown with a broken
-  number) when there's no baseline to compute BMR from.
+
+**The historical-average projection and "What if?" are ONE combined UI
+block, not two stacked ones** (they briefly were two separate
+`trend-projection` sections when "What if?" first shipped, immediately
+flagged as redundant since both just ran a BMR-adaptive walk and
+rendered the same `projCell` stats — merged the same session). One
+`scenarioPresets` row picks the scenario: `{value: null, label: 'Your
+avg'}` first, then the six `±100/300/500` kcal/day presets. The
+module-level `whatIfDelta` var holds the current selection — `null`
+means "Your avg" (the default, so the panel still shows a projection
+with zero interaction, same as before this merge existed), any number
+means that hypothetical delta. `App.setWhatIfDelta(n)` (still the one
+setter, now also called with literal `null` from the "Your avg"
+button) sets it and re-renders. `projForScenario(days)` inside
+`renderTrend` branches on `whatIfDelta == null` to call
+`simulateForward` vs. `simulateWhatIf`, and the label line above the
+`projCell` stats (`scenarioSub`) rephrases itself accordingly ("Based
+on your 7-day average intake & exercise" vs. "Eating 300 kcal/day more
+than your goal burn"). Both scenarios now share the same three
+horizons (7/30/90 days, previously 30/90/180 for "What if?" only) —
+picked to match `simulateForward`'s original, documented horizon set
+rather than inventing a third set of numbers for a merged block.
+**Not persisted** — `whatIfDelta` is scratch UI state, resets to `null`
+("Your avg") on reload, no `saveSettingsFromForm` carry-over needed.
+Requires `hasBaselineInputs(settings)` same as before — hidden
+entirely (not shown with a broken number) when there's no baseline to
+compute BMR from, regardless of which scenario is selected. If a
+future scenario type is added, extend `scenarioPresets` and
+`projForScenario`'s branch rather than reintroducing a second stacked
+block.
 
 ## Design system
 
